@@ -1,5 +1,5 @@
 %% TMS-EEG Preprocessing - March 2021
-%based on TEP_preproc.m  & TEP_preproc_single.m
+% based on TEP_preproc.m  & TEP_preproc_single.m
 % keeps data continuous
 
 % SETUP
@@ -10,11 +10,12 @@
 % PREPROC 
 %     - downsample (10 -> 1kHz)
 %     - filter (4,100)
-%     - break reject
-%     - ICA (blinks only)
-%     - art reject
+%     - **break reject**
+%     - **ICA (blinks only)**
+%     - **art reject**
 %     - interpolate
 %     - rereference
+%                         **manual steps
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% SETUP
@@ -43,6 +44,7 @@ cd(filedir)
 filename = dir('*.vhdr');
 EEG = pop_loadbv(filedir, filename.name, [], []);
 [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
+EEG = eeg_checkset( EEG );
 eeglab redraw
 
 % get data properties
@@ -52,9 +54,10 @@ channels = EEG.chanlocs;
 EOG = [64,65];
 
 % set up output
+mkdir Preproc
 out_dir =  strcat(filedir,'\Preproc\');
-out_txt = fopen(strcat(directory,subj,'_preproc'), 'a');
-fprintf(out_txt, '\r\n \r\n %s ', datestr(now)); 
+out_txt = fopen(strcat(out_dir,partic_str,'_preproc'), 'a');
+fprintf(out_txt, '\r\n \r\n %s \n', datestr(now)); 
 
 %set up ppt
 cd(out_dir)
@@ -62,11 +65,11 @@ import mlreportgen.ppt.*
 ppt = Presentation(strcat('Beta',partic_str,'-Preprocessing'));
 open(ppt);
 titleSlide = add(ppt,'Title Slide');
-replace(titleSlide,"Title",strcat('Beta',partic_str,'- Preproc2021.m'));
+replace(titleSlide,"Title",strcat('Beta',partic_str,'- Preprocessing.m'));
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% EVENTS
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % define events
 tap = 'S  1';
 tms = 'S  2';
@@ -95,7 +98,8 @@ for event = 1:length(EEG.event)
         if EEG.event(event+1).latency > EEG.event(event).latency +2000*dt
             if event == 1 
                 lonely = 1;
-            elseif EEG.event(event-1).latency < EEG.event(event).latency -2000*dt
+            elseif EEG.event(event-1).latency < ...
+                   EEG.event(event).latency-2000*dt
                 lonely = 1;
             end
         end
@@ -125,11 +129,13 @@ for event = 1:length(EEG.event)-1
     end
 end
 
-txt = sprintf('Found a total of %i remaining events and %i types: \n',length(EEG.event),length(trigger_types));
+txt = sprintf('Found a total of %i remaining events and %i types: \n',...
+               length(EEG.event),length(trigger_types));
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
 for trig=1:length(trigger_types)
-    txt = sprintf('\t %s (%i) \n', trigger_types{trig},count_triggers(trig));
+    txt = sprintf('\t %s (%i) \n', trigger_types{trig},...
+                  count_triggers(trig));
     fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
 end
@@ -144,6 +150,7 @@ for chan= 1:length(EEG.chanlocs)
     end
 end
 
+EEG = eeg_checkset( EEG );
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% TMS ARTIFACT
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -152,20 +159,18 @@ EEG.data=EEG.data-EEG.data(:,1);
 pulse = pop_epoch( EEG, {tms}, [-.01 .01], 'epochinfo', 'yes');
 pulse = pop_rmbase(pulse, [-10   0]);
 pop_eegplot( pulse, 1, 1, 1);
-tempfig = figure; pop_erpimage(pulse,1, [electr_oi_i],[[]],electr_oi,0,0,{},[],'' ,'yerplabel','\muV','erp','on','limits',[-5 9.9 NaN NaN NaN NaN NaN NaN] ,'cbar','on','topo', { [5] EEG.chanlocs EEG.chaninfo } );
-    slide = add(ppt,"Title and Content");
-    replace(slide,"Title",'Pulse');
-    Image = "snap1.png";
-    print(tempfig,"-dpng",Image);
-    Imageslide = Picture(Image);
-    replace(slide,"Content",Imageslide);
-tempfig = figure; pop_timtopo(pulse, [-5 5], [-.3  0  1], 'ERP data and scalp maps');
-    slide = add(ppt,"Title and Content");
-    replace(slide,"Title",'Pulse');
-    Image = "snap2.png";
-    print(tempfig,"-dpng",Image);
-    Imageslide = Picture(Image);
-    replace(slide,"Content",Imageslide);
+tempfig = figure; 
+pop_erpimage(pulse,1, [electr_oi_i],[[]],electr_oi,0,0,{},[],...
+            '' ,'yerplabel','\muV','erp','on','limits',[-5 9.9] ,...
+            'cbar','on','topo', { [5] EEG.chanlocs EEG.chaninfo } );
+slide = add(ppt,"Title and Content"); replace(slide,"Title",'Pulse');
+print(tempfig,"-dpng",'tempfig1');Imageslide = Picture('tempfig1.png');
+replace(slide,"Content",Imageslide);close(tempfig);
+tempfig = figure; 
+pop_timtopo(pulse, [-5 5], [-.3  0  1],'ERP data and scalp maps');
+slide = add(ppt,"Title and Content");replace(slide,"Title",'Pulse');
+print(tempfig,"-dpng",'tempfig2');Imageslide = Picture('tempfig2.png');
+replace(slide,"Content",Imageslide);close(tempfig);
 
 %re-epoch 
 pulse = pop_epoch( EEG, {tms}, [-.01 .6], 'epochinfo', 'yes');
@@ -185,15 +190,12 @@ subplot(2,1,2)
 plot(pulse.times(i(1):i(2)),pulse.data(electr_oi_i,i(1):i(2),trial))
 title('Pulse - Example Trial')
 xlabel('Time (ms)')
-    slide = add(ppt,"Title and Content");
-    replace(slide,"Title",'Pulse');
-    Image = "snap3.png";
-    print(tempfig,"-dpng",Image);
-    Imageslide = Picture(Image);
-    replace(slide,"Content",Imageslide);
+slide = add(ppt,"Title and Content");replace(slide,"Title",'Pulse');
+print(tempfig,"-dpng",'tempfig3');Imageslide = Picture('tempfig3.png');
+replace(slide,"Content",Imageslide);close(tempfig);
 
 %plot ringing
-tempfig = figure
+tempfig = figure;
 t = -5:1/dt:10;
 [temp, i(1)] = min(abs(pulse.times-t(1)));
 [temp, i(2)] = min(abs(pulse.times-t(end)));
@@ -215,12 +217,9 @@ title('Ringing -  Example Trial')
 xlabel('Time (ms)')
 xlim([t(1) t(end)])
 ylim([-500 15000])
-    slide = add(ppt,"Title and Content");
-    replace(slide,"Title",'Ringing');
-    Image = "snap4.png";
-    print(tempfig,"-dpng",Image);
-    Imageslide = Picture(Image);
-    replace(slide,"Content",Imageslide);
+slide = add(ppt,"Title and Content");replace(slide,"Title",'Ringing');
+print(tempfig,"-dpng",'tempfig4');Imageslide = Picture('tempfig4.png');
+replace(slide,"Content",Imageslide);close(tempfig);
 
 %plot recharge
 tempfig = figure;
@@ -243,13 +242,10 @@ title('Recharge -  Example Trial')
 xlabel('Time (ms)')
 xlim([t(1) t(end)])
 ylim([-500 500])
-    slide = add(ppt,"Title and Content");
-    replace(slide,"Title",'Recharge');
-    Image = "snap5.png";
-    print(tempfig,"-dpng",Image);
-    Imageslide = Picture(Image);
-    replace(slide,"Content",Imageslide);
-
+slide = add(ppt,"Title and Content");replace(slide,"Title",'Recharge');
+print(tempfig,"-dpng",'tempfig5');Imageslide = Picture('tempfig5.png');
+replace(slide,"Content",Imageslide);close(tempfig)
+clear pulse
 
 %% Remove pulse from continuous data   
 % I'm no longer looking for pulses, I just go by the pulse events
@@ -266,14 +262,16 @@ for event = 1:length(EEG.event)
         end
     end
 end
-txt = sprintf('%i pulse times found (%i expected).\n',length(pulse_times), 720/3*2) ;
+txt = sprintf('%i pulse times found (%i expected).\n',...
+              length(pulse_times), 720/3*2) ;
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
 
 %loop through and get rid
 pulse=[];
 for p = 1:length(pulse_times)
-    pulse = pulse_times(p)+pulse_zero_time(1)*dt : pulse_times(p)+pulse_zero_time(2)*dt;
+    pulse = pulse_times(p)+pulse_zero_time(1)*dt : pulse_times(p)+...
+            pulse_zero_time(2)*dt;
         % since I'm not doing trials, I can giv the interpolation the whole
         % data at each step, but that takes forever (works though), so I'm
         % cutting around it first
@@ -307,28 +305,28 @@ tempfig = figure;
 count=0;
 plot_time = [-10 20];
 rnd_elecs = randi(size(EEG.data,1)-length(EOG),1,12);
-for elec=1:size(rnd_elecs)
-    if elec/12==round(elec/12)
-        figure
-        hold on
-        count = 0;
-    end
+for elec=1:length(rnd_elecs)
+%     if elec/12==round(elec/12)
+%         figure
+%         hold on
+%         count = 0;
+%     end
     count = count+1;
     subplot(4,3,count)
     hold on
-    title(strcat('Electrode ',EEG.chanlocs(rnd_elecs(elec)).labels,' - Pulse: ', num2str(p)))
+    title(strcat('Electrode ',EEG.chanlocs(rnd_elecs(elec)).labels,...
+          ' - Pulse: ', num2str(p)))
     for p = 1:length(pulse_times)
-        pulse = pulse_times(p)+plot_time(1)*dt : pulse_times(p)+plot_time(2)*dt;
-        data = EEG.data(rnd_elecs(elec),pulse) - EEG.data(rnd_elecs(elec),pulse(1));
+        pulse = pulse_times(p)+plot_time(1)*dt : pulse_times(p)+...
+                plot_time(2)*dt;
+        data = EEG.data(rnd_elecs(elec),pulse) - ...
+               EEG.data(rnd_elecs(elec),pulse(1));
         plot(plot_time(1):1/dt:plot_time(2),data)
     end
 end
-    slide = add(ppt,"Title and Content");
-    replace(slide,"Title",'Recharge');
-    Image = "snap6.png";
-    print(tempfig,"-dpng",Image);
-    Imageslide = Picture(Image);
-    replace(slide,"Content",Imageslide);  
+slide = add(ppt,"Title and Content");replace(slide,"Title",'Interpolated Pulse');
+print(tempfig,"-dpng",'tempfig6');Imageslide = Picture('tempfig6.png');
+replace(slide,"Content",Imageslide);close(tempfig);
     
 
 %% now replot pulse figures
@@ -351,29 +349,39 @@ plot(pulse.times(i(1):i(2)),pulse.data(electr_oi_i,i(1):i(2),trial))
 title('Pulse - Example Trial')
 xlabel('Time (ms)')
 clear pulse
-    slide = add(ppt,"Title and Content");
-    replace(slide,"Title",'Pulse');
-    Image = "snap7.png";
-    print(tempfig,"-dpng",Image);
-    Imageslide = Picture(Image);
-    replace(slide,"Content",Imageslide);
+slide = add(ppt,"Title and Content");replace(slide,"Title",'Pulse (after interpolation)');
+print(tempfig,"-dpng",'tempfig7');Imageslide = Picture('tempfig7.png');
+replace(slide,"Content",Imageslide);close(tempfig);
 
-    
+ EEG = eeg_checkset( EEG );   
 %% median filter recharges 
 %(don't intend to look there, but let's be thorough)
 % there are two components to the recharge artifact, one at the daly (here
 % 500) and one a period after, depnding on intesnity (here 13)
 for p = 1:length(pulse_times)
     % initial bump
-    recharge1 = pulse_times(p)+delay*dt + recharge_zero_time(1)*dt : pulse_times(p)+delay*dt + recharge_zero_time(2)*dt;
-    %second bump
-    recharge2 = pulse_times(p)+(delay+recharge_period)*dt + recharge_zero_time(1)*dt : pulse_times(p)+(delay+recharge_period)*dt + recharge_zero_time(2)*dt;  
+    recharge1 = pulse_times(p)+delay*dt + ...
+                recharge_zero_time(1)*dt : pulse_times(p)+delay*dt + ...
+                recharge_zero_time(2)*dt;
     for elec=1:size(EEG.data,1)
-        filt_ord =length(recharge);%number of datapoints considered left and right
-        EEG.data(elec,[recharge1, recharge2])=medfilt1(EEG.data(elec,[recharge1, recharge2]),filt_ord,'truncate');
+        filt_ord =length(recharge1);%number of datapoints considered left and right
+        EEG.data(elec,[recharge1])= medfilt1(EEG.data(elec,...
+                              [recharge1]),filt_ord,'truncate');
+    end
+    %second bump
+    recharge2 = pulse_times(p)+(delay+recharge_period)*dt + ...
+                recharge_zero_time(1)*dt : pulse_times(p)+...
+                (delay+recharge_period)*dt + recharge_zero_time(2)*dt;  
+    for elec=1:size(EEG.data,1)
+        filt_ord =length(recharge2);%number of datapoints considered left and right
+        EEG.data(elec,[recharge2])= medfilt1(EEG.data(elec,...
+                              [recharge2]),filt_ord,'truncate');
     end
 end
-
+txt = sprintf('Recharge period used: %ims.\n',recharge_period);
+fprintf(out_txt, '%s\n ', txt); 
+fprintf('%s',txt)
+EEG = eeg_checkset( EEG );
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% PREPROC
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -384,14 +392,15 @@ dt=1;
 EEG=tesa_filtbutter(EEG,1,100,4,'bandpass');
 
 %% remove bad channels
-figure; pop_spectopo(EEG, 1, [], 'EEG' , 'percent',15,'freq', [10 20 30],'freqrange',[2 80],'electrodes','off');
-bad= [29];%BETA02
+figure; pop_spectopo(EEG, 1, [], 'EEG' , 'percent',15,'freq',...
+        [10 20 30],'freqrange',[2 80],'electrodes','off');
+bad= [29];
 EEG=pop_select(EEG, 'nochannel',bad);
 bad_labls=[];
 for i = 1 :length(bad)
     bad_labls=[bad_labls, channels(bad(i)).labels,', '];
 end
-txt = sprintf('Bad Channels: %s',bad_labels');
+txt = sprintf('Bad Channels: %s\n',bad_labls(1:end-2));
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
 
@@ -399,30 +408,27 @@ fprintf('%s',txt)
 %eeglab redraw
 %pop_eegplot( EEG, 1, 1, 1);
 
-%Beta02: breals only
 rej= [12 97910;402549 536063;843000 870484;1178498 1206415;1517472 1545562;1852190 1880373;2186315 2214274;2523272 2551683;2614478 2634100];
+EEG = eeg_eegrej( EEG, rej);
 txt = sprintf('Break Rejection: %s\n',mat2str(rej));
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
-    
+EEG = eeg_checkset( EEG );
+
 %% ICA
 % since we recrod all the time, we definitely get a lot of lbinks which
 % aren't locked to TMS - so hopeffuly this is fine
 EEG=pop_runica(EEG, 'icatype', 'runica');
 
 %Identify Blink Component
-tempfig = figure; pop_selectcomps(EEG, [1:35] );
-    slide = add(ppt,"Title and Content");
-    replace(slide,"Title",'Recharge');
-    Image = "snap8.png";
-    print(tempfig,"-dpng",Image);
-    Imageslide = Picture(Image);
-    replace(slide,"Content",Imageslide);  
+figure; pop_selectcomps(EEG, [1:35] );
+
 blink_component = 1;
+
 txt = sprintf('Blink Component: %s\n',num2str(blink_component));
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
-%% check bliks
+%% check blinks
 Comps=EEG.icaweights*EEG.data;% sources = unmixing matrix * data
 Blinks = Comps(blink_component,:);
 Blinks = abs(Blinks);
@@ -450,21 +456,17 @@ for event = 1:length(EEG.event)
 end
 tempfig = figure; histogram(closest_blink)
 title('Closest Blinks per Pulse')
-    slide = add(ppt,"Title and Content");
-    replace(slide,"Title",'Recharge');
-    Image = "snap9.png";
-    print(tempfig,"-dpng",Image);
-    Imageslide = Picture(Image);
-    replace(slide,"Content",Imageslide);  
-txt = sprintf('%i pulses occur within 0.1s of a blink.\n',sum(closest_blink<=100));
-fprintf(out_txt, '%s\n ', txt); 
-fprintf('%s',txt)
-txt=sprintf('%i pulses occur within 0.5s of a blink.\n',sum(closest_blink<=500));
-fprintf(out_txt, '%s\n ', txt); 
-fprintf('%s',txt)
-txt=sprintf('%i pulses occur within 1s of a blink.\n',sum(closest_blink<=1000));
-fprintf(out_txt, '%s\n ', txt); 
-fprintf('%s',txt)
+slide = add(ppt,"Title and Content");replace(slide,"Title",'Blink - Pulse');
+print(tempfig,"-dpng",'tempfig8');Imageslide = Picture('tempfig8.png');
+replace(slide,"Content",Imageslide);close(tempfig);
+
+blk_cnds=[.1,.5,1];
+for blk = 1:length(blk_cnds)
+    txt = sprintf('%i pulses are within %1.1fs of blink.\n',...
+             sum(closest_blink<=blk_cnds(blk)*1000),blk_cnds(blk));
+	fprintf(out_txt, '%s\n ', txt); 
+    fprintf('%s',txt)
+end
 txt=sprintf('%i pulses are at least 1s away from a blink.\n',sum(closest_blink>1000));
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
@@ -474,14 +476,15 @@ EEG = pop_subcomp( EEG, blink_component, 0);
 %% manual rejecction
 %eeglab redraw
 pop_eegplot( EEG, 1, 1, 1);
+
 rej=[7584 8036;9325 10429;11718 13988;47064 47517;57176 57582;70883 71873;74322 75049;109479 110120;121109 122483;187708 190138;194510 196530;219179 220769;251059 251159;253431 254335;269266 271437;278781 279514;304584 309597;314866 316808;329266 330778;385395 385877;417182 418101;481161 484588;535289 536687;602105 603673;794826 795451;830852 832065;918604 926888;937683 941560;950778 951863;961254 962158;1012157 1014437;1017392 1019229;1022336 1025516;1061310 1061984;1063474 1064826;1092621 1093549;1108796 1111369;1126468 1130228;1139588 1140120;1176356 1177498;1199337 1199817;1230608 1235970;1237955 1241112;1243048 1243258;1247689 1247894;1253901 1254659;1310555 1311891;1312046 1312560;1517423 1519171;1529516 1530315;1537185 1539829;1547591 1548440;1568314 1568497;1574346 1575682;1583784 1584783;1628128 1629826;1640085 1640951;1658508 1659171;1661127 1661375;1675330 1675679;1684247 1685556;1723555 1724563;1729866 1730577;1734053 1734693;1738737 1740157;1767265 1768030;1843140 1846446;1847111 1850828;1854377 1856752;1950583 1951211;2057578 2058695;2152182 2154576;2160466 2161261;2202098 2202501;2205707 2206873];
+EEG = eeg_eegrej( EEG, rej);
 txt = sprintf('Manual Artifact Rejection: %s\n',mat2str(rej));
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
     
 %interpolate
 EEG=pop_interp(EEG,channels,'spherical');
-
 
 %reref
 EEG = pop_reref( EEG, []);
@@ -496,17 +499,18 @@ txt = sprintf('%i clean TEPs left (-100 400, tms).\n', size(TEP.data,3));
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
 SEP = pop_epoch( EEG, {tap}, [-.1 .4], 'epochinfo', 'yes');
-txt = sprintf('%i clean SEPs left (-100 400, tap).\n', size(TEP.data,3));
+txt = sprintf('%i clean SEPs left (-100 400, tap).\n', size(SEP.data,3));
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
 
 % save
 EEG = eeg_checkset( EEG );
-EEG = pop_saveset( EEG, 'filename',strcat(partic_str,'_clean.set'),'filepath',file_dir);
+EEG = pop_saveset( EEG, 'filename',strcat(partic_str,'_clean.set'),'filepath',filedir);
 
 %done
 fclose('all');
 close(ppt);
-   
+delete tempfig1.png tempfig2.png tempfig3.png tempfig4.png tempfig5.png
+delete tempfig6.png tempfig7.png tempfig8.png
 % TEP = pop_epoch( EEG, {tms}, [-.1 .4], 'epochinfo', 'yes');
 % TEP = pop_rmbase(TEP, [-100   -90]);
