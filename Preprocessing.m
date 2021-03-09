@@ -5,7 +5,7 @@
 % SETUP
 % EVENTS
 % TMS ARTIFACT 
-%     - interpolate pulse (linear) - had issues with cubic
+%     - **interpolate pulse** (linear) - had issues with cubic
 %     - median filter recharge
 % PREPROC 
 %     - downsample (10 -> 1kHz)
@@ -29,8 +29,6 @@ partic = 2;
 delay = 500;
 recharge_period = 13;
 recharge_zero_time = [-3 3];%artifact itself is short, but a bit variable, so cut out chunk - don't really care anyway
-% Pulse
-pulse_zero_time=[-4,10]; %don't touch this
 
 % load eeglab
 eeglab_dir='C:\Users\ckohl\Documents\MATLAB\eeglab2020_0';
@@ -93,25 +91,29 @@ fprintf('%s',txt)
 % to zero but we still get an event - delete those)
 list = [];
 for event = 1:length(EEG.event)
-    if EEG.event(event).type == tms
-        lonely=0;
-        if EEG.event(event+1).latency > EEG.event(event).latency +2000*dt
-            if event == 1 
-                lonely = 1;
-            elseif EEG.event(event-1).latency < ...
-                   EEG.event(event).latency-2000*dt
-                lonely = 1;
+    if length(EEG.event(event).type) == length(tms)
+        if EEG.event(event).type == tms
+            lonely=0;
+            if EEG.event(event+1).latency > EEG.event(event).latency +2000*dt
+                if event == 1 
+                    lonely = 1;
+                elseif EEG.event(event-1).latency < ...
+                       EEG.event(event).latency-2000*dt
+                    lonely = 1;
+                end
             end
-        end
-        if lonely
-            list = [ list, event];
+            if lonely
+                list = [list, event];
+            end
         end
     end
 end
 EEG.event(list)=[];
-txt = sprintf(' %i lonely tms events deleted.\n',length(list));
+txt = sprintf('%i lonely tms events deleted\n',length(list));
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
+txt = sprintf('\t%s\n',num2str(list));
+fprintf(out_txt, '%s\n ', txt); 
 
 % list what's left
 count_triggers=[];
@@ -137,9 +139,8 @@ for trig=1:length(trigger_types)
     txt = sprintf('\t %s (%i) \n', trigger_types{trig},...
                   count_triggers(trig));
     fprintf(out_txt, '%s\n ', txt); 
-fprintf('%s',txt)
+    fprintf('%s',txt)
 end
-disp('----')
     
 %find electrode oi
 for chan= 1:length(EEG.chanlocs)
@@ -151,6 +152,165 @@ for chan= 1:length(EEG.chanlocs)
 end
 
 EEG = eeg_checkset( EEG );
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Define Conditions
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% add events so that we can tell the condition by the event:
+% T10 -> Tap event in condition: tap threshold, noTMS
+% T11 -> Tap event in condition: tap threshold, TMS 100ms
+% T12 -> Tap event in condition: tap threshold, TMS 25ms
+% 
+% T20 -> Tap event in condition: tap supra, noTMS
+% T21 -> Tap event in condition: tap supra, TMS 100ms
+% T22 -> Tap event in condition: tap supra, TMS 25ms 
+% 
+% Z01 -> TMS event in condition: tap null, TMS 100ms
+% Z11 -> TMS event in condition: tap threshold, TMS 100ms
+% Z21 -> TMS event in condition: tap supra, TMS 100ms
+% 
+% Z02 -> TMS event in condition: tap null, TMS 25ms 
+% Z12 -> TMS event in condition: tap threshold, TMS 25ms 
+% Z22 -> TMS event in condition: tap supra, TMS 25ms 
+
+
+% also: % add trial numbers in events so we can alwys match back
+
+% load beh
+opts = delimitedTextImportOptions("NumVariables", 11);
+opts.DataLines = [5, Inf];
+opts.Delimiter = "\t";
+opts.VariableNames = ["Trial", "CueCond", "TMSCond", "TapCond", "Accuracy", "YesResponse", "NoResponse", "TapTime", "TMSTime", "RT", "Threshold"];
+opts.VariableTypes = ["double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double"];
+opts.ExtraColumnsRule = "ignore";
+opts.EmptyLineRule = "read";
+tbl = readtable(strcat(filedir,'\BETA',partic_str,'_results.txt'), opts);
+% Convert to output type
+Trial = tbl.Trial;
+CueCond = tbl.CueCond;
+TMSCond = tbl.TMSCond;
+TapCond = tbl.TapCond;
+Accuracy = tbl.Accuracy;
+YesResponse = tbl.YesResponse;
+NoResponse = tbl.NoResponse;
+TapTime = tbl.TapTime;
+TMSTime = tbl.TMSTime;
+Threshold = tbl.Threshold;
+clear opts tbl
+
+% find nr of trials  in EEG
+count=0;
+for event = 1:length(EEG.event)
+    if length(EEG.event(event).type) == length(cue1)
+        if EEG.event(event).type == cue1 | EEG.event(event).type == cue2
+            count=count+1;
+        end
+    end
+end       
+% match trials
+if length(Trial)~=count
+    fprintf('Trials don''t match\n')
+end
+new_event = EEG.event; %new structure;
+trial = 0;
+for event = 1:length(EEG.event)
+    if EEG.event(event).type == cue1 | EEG.event(event).type == cue2
+        trial = trial +1;
+        new_event(end+1) = EEG.event(event);
+        new_event(end).type = strcat('Trial',num2str(trial));
+        new_event(end).urevent=[];
+        new_event(end).bvmknum=[];
+        if TMSCond(trial)==1 %tms100
+            if EEG.event(event+1).type==tms
+                new_event(end+1) = EEG.event(event+1);
+                new_event(end).type =strcat('Z_',num2str(TapCond(trial)),num2str(TMSCond(trial)));  
+                new_event(end).urevent=[];
+                new_event(end).bvmknum=[];
+            else
+                fprintf('ISSUE -1\n')
+            end
+            if TapCond(trial)>0 
+                if EEG.event(event+2).type==tap
+                    new_event(end+1) = EEG.event(event+2);
+                    new_event(end).type =strcat('T_',num2str(TapCond(trial)),num2str(TMSCond(trial)));
+                    new_event(end).urevent=[];
+                    new_event(end).bvmknum=[];
+                else
+                    fprintf('ISSUE -2\n')
+                end   
+            end
+        elseif TMSCond(trial)==2
+            step=1;
+            if TapCond(trial)>0
+                if EEG.event(event+step).type==tap
+                    new_event(end+1) = EEG.event(event+step);
+                    new_event(end).type =strcat('T_',num2str(TapCond(trial)),num2str(TMSCond(trial)));   
+                    new_event(end).urevent=[];
+                    new_event(end).bvmknum=[];
+                    step=step+1;
+                else
+                    fprintf('ISSUE -3\n')
+                end
+            end
+            if EEG.event(event+step).type==tms
+                new_event(end+1) = EEG.event(event+step);
+                new_event(end).type =strcat('Z_',num2str(TapCond(trial)),num2str(TMSCond(trial))); 
+                new_event(end).urevent=[];
+                new_event(end).bvmknum=[];
+            else
+                fprintf('ISSUE -4\n')
+            end
+        elseif TMSCond(trial)==0
+            if TapCond(trial)>0
+                if EEG.event(event+1).type==tap
+                    new_event(end+1) = EEG.event(event+1);
+                    new_event(end).type =strcat('T_',num2str(TapCond(trial)),num2str(TMSCond(trial)));
+                    new_event(end).urevent=[];
+                    new_event(end).bvmknum=[];
+                else
+                    fprintf('ISSUE -5\n')
+                end
+            end
+        end
+    end
+end
+keep = EEG.event;
+EEG.event = new_event ;     
+EEG = eeg_checkset( EEG , 'eventconsistency');
+           
+
+% list all events after changes
+count_triggers=[0];
+trigger_types={'Trial'};
+for event = 1:length(EEG.event)-1
+    if EEG.event(event).type(1:3)=='Tri'
+        count_triggers(1)=count_triggers(1)+1;
+    else
+        if ~any(ismember(EEG.event(event).type ,trigger_types))
+            trigger_types{end+1}=EEG.event(event).type;
+            count_triggers(end+1)=1;
+        else
+            for trig=1:length(trigger_types)
+                if EEG.event(event).type(1:4) == trigger_types{trig}(1:4)
+                    count_triggers(trig)=count_triggers(trig)+1;
+                end
+            end
+        end
+    end
+end
+
+txt = sprintf('After event manipulation, there are a total of %i remaining events and %i types: \n',...
+               length(EEG.event),length(trigger_types));
+fprintf(out_txt, '%s\n ', txt); 
+fprintf('%s',txt)
+for trig=1:length(trigger_types)
+    txt = sprintf('\t %s (%i) \n', trigger_types{trig},...
+                  count_triggers(trig));
+    fprintf(out_txt, '%s\n ', txt); 
+    fprintf('%s',txt)
+end
+        
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% TMS ARTIFACT
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -247,6 +407,30 @@ print(tempfig,"-dpng",'tempfig5');Imageslide = Picture('tempfig5.png');
 replace(slide,"Content",Imageslide);close(tempfig)
 clear pulse
 
+% plot decay
+%%%%%%%%%%%%%%%
+pulse = pop_epoch( EEG, {tms}, [-.05 .2], 'epochinfo', 'yes');
+pulse = pop_rmbase(pulse, [-40   -10]);
+figure
+clf
+hold on
+plot(pulse.times, mean(pulse.data(5,:,:),3))
+ylim([-10 6])
+title('Decay')
+slide = add(ppt,"Title and Content");replace(slide,"Title",'Decay');
+print(tempfig,"-dpng",'tempfig6');Imageslide = Picture('tempfig6.png');
+replace(slide,"Content",Imageslide);close(tempfig)
+clear pulse
+% what I could do is interpolate decay and then (still not recovered to 0)
+% rebase the data from the point after tms?
+
+%% Pulse
+pulse_zero_time=[-4,22]; 
+txt = sprintf('Pulse cut: %i %i\n',pulse_zero_time);
+fprintf(out_txt, '%s\n ', txt); 
+fprintf('%s',txt)
+%%%%%%%%%%%%
+
 %% Remove pulse from continuous data   
 % I'm no longer looking for pulses, I just go by the pulse events
 % (they coe directly from the stimulator and should be accurate - for code
@@ -324,8 +508,31 @@ for elec=1:length(rnd_elecs)
         plot(plot_time(1):1/dt:plot_time(2),data)
     end
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+clf
+for elec=5%:length(rnd_elecs)
+%     if elec/12==round(elec/12)
+%         figure
+%         hold on
+%         count = 0;
+%     end
+    hold on
+    title(strcat('Electrode ',EEG.chanlocs((elec)).labels,...
+          ' - Pulse: ', num2str(p)))
+    for p = 1:length(pulse_times)
+        pulse = pulse_times(p)+plot_time(1)*dt : pulse_times(p)+...
+                plot_time(2)*dt;
+        data = EEG.data(elec,pulse) - ...
+               EEG.data((elec),pulse(1));
+        plot(plot_time(1):1/dt:plot_time(2),data)
+    end
+end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 slide = add(ppt,"Title and Content");replace(slide,"Title",'Interpolated Pulse');
-print(tempfig,"-dpng",'tempfig6');Imageslide = Picture('tempfig6.png');
+print(tempfig,"-dpng",'tempfig7');Imageslide = Picture('tempfig7.png');
 replace(slide,"Content",Imageslide);close(tempfig);
     
 
@@ -350,7 +557,7 @@ title('Pulse - Example Trial')
 xlabel('Time (ms)')
 clear pulse
 slide = add(ppt,"Title and Content");replace(slide,"Title",'Pulse (after interpolation)');
-print(tempfig,"-dpng",'tempfig7');Imageslide = Picture('tempfig7.png');
+print(tempfig,"-dpng",'tempfig8');Imageslide = Picture('tempfig8.png');
 replace(slide,"Content",Imageslide);close(tempfig);
 
  EEG = eeg_checkset( EEG );   
@@ -403,6 +610,16 @@ end
 txt = sprintf('Bad Channels: %s\n',bad_labls(1:end-2));
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
+
+%in case it changed:
+%find electrode oi
+for chan= 1:length(EEG.chanlocs)
+    if length(EEG.chanlocs(chan).labels)==2
+        if EEG.chanlocs(chan).labels==electr_oi
+            electr_oi_i=chan;
+        end
+    end
+end
 
 %% break manual rejecction
 %eeglab redraw
@@ -457,7 +674,7 @@ end
 tempfig = figure; histogram(closest_blink)
 title('Closest Blinks per Pulse')
 slide = add(ppt,"Title and Content");replace(slide,"Title",'Blink - Pulse');
-print(tempfig,"-dpng",'tempfig8');Imageslide = Picture('tempfig8.png');
+print(tempfig,"-dpng",'tempfig9');Imageslide = Picture('tempfig9.png');
 replace(slide,"Content",Imageslide);close(tempfig);
 
 blk_cnds=[.1,.5,1];
@@ -511,6 +728,4 @@ EEG = pop_saveset( EEG, 'filename',strcat(partic_str,'_clean.set'),'filepath',fi
 fclose('all');
 close(ppt);
 delete tempfig1.png tempfig2.png tempfig3.png tempfig4.png tempfig5.png
-delete tempfig6.png tempfig7.png tempfig8.png
-% TEP = pop_epoch( EEG, {tms}, [-.1 .4], 'epochinfo', 'yes');
-% TEP = pop_rmbase(TEP, [-100   -90]);
+delete tempfig6.png tempfig7.png tempfig8.png tempfig9.png
