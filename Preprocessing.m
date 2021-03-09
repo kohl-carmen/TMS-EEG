@@ -411,8 +411,7 @@ clear pulse
 %%%%%%%%%%%%%%%
 pulse = pop_epoch( EEG, {tms}, [-.05 .2], 'epochinfo', 'yes');
 pulse = pop_rmbase(pulse, [-40   -10]);
-figure
-clf
+tempfig = figure;
 hold on
 plot(pulse.times, mean(pulse.data(5,:,:),3))
 ylim([-10 6])
@@ -487,7 +486,7 @@ end
 %if we need to look properly, loop through all elecs
 tempfig = figure;
 count=0;
-plot_time = [-10 20];
+plot_time = [pulse_zero_time(1)-5, pulse_zero_time(2)+10];
 rnd_elecs = randi(size(EEG.data,1)-length(EOG),1,12);
 for elec=1:length(rnd_elecs)
 %     if elec/12==round(elec/12)
@@ -498,8 +497,7 @@ for elec=1:length(rnd_elecs)
     count = count+1;
     subplot(4,3,count)
     hold on
-    title(strcat('Electrode ',EEG.chanlocs(rnd_elecs(elec)).labels,...
-          ' - Pulse: ', num2str(p)))
+    title(strcat('Electrode ',EEG.chanlocs(rnd_elecs(elec)).labels))
     for p = 1:length(pulse_times)
         pulse = pulse_times(p)+plot_time(1)*dt : pulse_times(p)+...
                 plot_time(2)*dt;
@@ -508,27 +506,6 @@ for elec=1:length(rnd_elecs)
         plot(plot_time(1):1/dt:plot_time(2),data)
     end
 end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-clf
-for elec=5%:length(rnd_elecs)
-%     if elec/12==round(elec/12)
-%         figure
-%         hold on
-%         count = 0;
-%     end
-    hold on
-    title(strcat('Electrode ',EEG.chanlocs((elec)).labels,...
-          ' - Pulse: ', num2str(p)))
-    for p = 1:length(pulse_times)
-        pulse = pulse_times(p)+plot_time(1)*dt : pulse_times(p)+...
-                plot_time(2)*dt;
-        data = EEG.data(elec,pulse) - ...
-               EEG.data((elec),pulse(1));
-        plot(plot_time(1):1/dt:plot_time(2),data)
-    end
-end
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 slide = add(ppt,"Title and Content");replace(slide,"Title",'Interpolated Pulse');
@@ -542,18 +519,21 @@ pulse = pop_epoch( EEG, {tms}, [-.01 .6], 'epochinfo', 'yes');
 pulse = pop_rmbase(pulse, [-10   0]);
 %plot pulse
 tempfig=figure;
-t = -10:1/dt:20;
+t = [pulse_zero_time(1)-5:1/dt: pulse_zero_time(2)+10];
 [temp, i(1)] = min(abs(pulse.times-t(1)));
 [temp, i(2)] = min(abs(pulse.times-t(end)));
-subplot(2,1,1)
+subplot(3,1,1)
 hold on
 for trial = 1:size(pulse.data,3)
     plot(pulse.times(i(1):i(2)),pulse.data(electr_oi_i,i(1):i(2),trial))
 end
 title('Pulse - All Trials')
-subplot(2,1,2)
+subplot(3,1,2)
 plot(pulse.times(i(1):i(2)),pulse.data(electr_oi_i,i(1):i(2),trial))
 title('Pulse - Example Trial')
+subplot(3,1,3)
+plot(pulse.times(i(1):i(2)),mean(pulse.data(electr_oi_i,i(1):i(2),:),3))
+title('Pulse - Avg')
 xlabel('Time (ms)')
 clear pulse
 slide = add(ppt,"Title and Content");replace(slide,"Title",'Pulse (after interpolation)');
@@ -727,5 +707,6 @@ EEG = pop_saveset( EEG, 'filename',strcat(partic_str,'_clean.set'),'filepath',fi
 %done
 fclose('all');
 close(ppt);
+close all
 delete tempfig1.png tempfig2.png tempfig3.png tempfig4.png tempfig5.png
 delete tempfig6.png tempfig7.png tempfig8.png tempfig9.png
