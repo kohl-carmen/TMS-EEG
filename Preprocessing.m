@@ -10,7 +10,7 @@
 % PREPROC 
 %     - downsample (10 -> 1kHz)
 %     - filter (4,100)
-%     - **break reject**
+%     - break reject
 %     - **ICA (blinks only)**
 %     - **art reject**
 %     - interpolate
@@ -24,7 +24,7 @@ clear
 close all
 
 %% set per person
-partic = 2;
+partic = 'Steph';
 % Recharge 
 delay = 500;
 recharge_period = 13;
@@ -185,7 +185,7 @@ opts.VariableNames = ["Trial", "CueCond", "TMSCond", "TapCond", "Accuracy", "Yes
 opts.VariableTypes = ["double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double"];
 opts.ExtraColumnsRule = "ignore";
 opts.EmptyLineRule = "read";
-tbl = readtable(strcat(filedir,'\BETA',partic_str,'_results.txt'), opts);
+tbl = readtable(strcat(filedir,'\BETA',partic_str,'_results'), opts);
 % Convert to output type
 Trial = tbl.Trial;
 CueCond = tbl.CueCond;
@@ -379,7 +379,7 @@ xlim([t(1) t(end)])
 ylim([-500 15000])
 slide = add(ppt,"Title and Content");replace(slide,"Title",'Ringing');
 print(tempfig,"-dpng",'tempfig4');Imageslide = Picture('tempfig4.png');
-replace(slide,"Content",Imageslide);close(tempfig);
+replace(slide,"Content",Imageslide);
 
 %plot recharge
 tempfig = figure;
@@ -404,7 +404,7 @@ xlim([t(1) t(end)])
 ylim([-500 500])
 slide = add(ppt,"Title and Content");replace(slide,"Title",'Recharge');
 print(tempfig,"-dpng",'tempfig5');Imageslide = Picture('tempfig5.png');
-replace(slide,"Content",Imageslide);close(tempfig)
+replace(slide,"Content",Imageslide);
 clear pulse
 
 % plot decay
@@ -418,13 +418,13 @@ ylim([-10 6])
 title('Decay')
 slide = add(ppt,"Title and Content");replace(slide,"Title",'Decay');
 print(tempfig,"-dpng",'tempfig6');Imageslide = Picture('tempfig6.png');
-replace(slide,"Content",Imageslide);close(tempfig)
+replace(slide,"Content",Imageslide)
 clear pulse
 % what I could do is interpolate decay and then (still not recovered to 0)
 % rebase the data from the point after tms?
-
+close(tempfig);
 %% Pulse
-pulse_zero_time=[-4,22]; 
+pulse_zero_time=[-1,0];%[-4,22]; 
 txt = sprintf('Pulse cut: %i %i\n',pulse_zero_time);
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
@@ -581,7 +581,10 @@ EEG=tesa_filtbutter(EEG,1,100,4,'bandpass');
 %% remove bad channels
 figure; pop_spectopo(EEG, 1, [], 'EEG' , 'percent',15,'freq',...
         [10 20 30],'freqrange',[2 80],'electrodes','off');
-bad= [29];
+%steph bad=[25,46,48,64,65];
+%02 bad= [29];
+%04 bad = [14];
+
 EEG=pop_select(EEG, 'nochannel',bad);
 bad_labls=[];
 for i = 1 :length(bad)
@@ -601,11 +604,53 @@ for chan= 1:length(EEG.chanlocs)
     end
 end
 
-%% break manual rejecction
-%eeglab redraw
-%pop_eegplot( EEG, 1, 1, 1);
+%% automatic break rejecction
+break_trials =[120:120:720-120];
+rej = [];
+%delete beginning & end
+for event = 1:length(EEG.event)
+    if length(EEG.event(event).type)==length('Trial1')
+        if EEG.event(event).type=='Trial1'
+            rej = [rej; 2 EEG.event(event).latency - 1000*dt];
+        end
+    elseif length(EEG.event(event).type)==length('Trial720')
+        if EEG.event(event).type=='Trial720'
+            for step = 1:length(EEG.event)-event
+                if length(EEG.event(event+step).type) == length(respcue)
+                    if EEG.event(event+step).type == respcue
+                        rej = [rej; EEG.event(event+step).latency + 1000*dt size(EEG.data,2)];
+                    end
+                end
+            end
+        end
+    end
+end
+%delete breaks
+for brk = 1:length(break_trials)
+    for event = 1:length(EEG.event)
+        if length(EEG.event(event).type)==length(strcat('Trial',num2str(break_trials(brk))))
+            if EEG.event(event).type==strcat('Trial',num2str(break_trials(brk)))
+                lat_start =[];
+                lat_end =[];
+                for step = 1:10
+                    if length(EEG.event(event+step).type) == length(respcue)
+                        if EEG.event(event+step).type == respcue & isempty(lat_start)
+                            lat_start =  EEG.event(event+step).latency + 1000*dt;
+                        end
+                    elseif length(EEG.event(event+step).type)==length(strcat('Trial',num2str(break_trials(brk)+1)))
+                        if EEG.event(event+step).type==strcat('Trial',num2str(break_trials(brk)+1)) & isempty(lat_end)
+                            lat_end = EEG.event(event+step).latency - 1000*dt;
+                        end
+                    end
+                end
+                if lat_end > lat_start
+                    rej = [rej; lat_start lat_end];
+                end
+            end
+        end
+    end
+end
 
-rej= [12 97910;402549 536063;843000 870484;1178498 1206415;1517472 1545562;1852190 1880373;2186315 2214274;2523272 2551683;2614478 2634100];
 EEG = eeg_eegrej( EEG, rej);
 txt = sprintf('Break Rejection: %s\n',mat2str(rej));
 fprintf(out_txt, '%s\n ', txt); 
@@ -673,9 +718,11 @@ EEG = pop_subcomp( EEG, blink_component, 0);
 %% manual rejecction
 %eeglab redraw
 pop_eegplot( EEG, 1, 1, 1);
+%steph: rej = [104 2148;144175 147886;182522 187965;362017 367945;410039 410869;430137 431657;466703 468123;476342 477327;569840 572335;660637 665402;713022 720410;758158 760568;1140805 1141123;1209083 1210286;1864526 1868648];
+% 02: rej=[7584 8036;9325 10429;11718 13988;47064 47517;57176 57582;70883 71873;74322 75049;109479 110120;121109 122483;187708 190138;194510 196530;219179 220769;251059 251159;253431 254335;269266 271437;278781 279514;304584 309597;314866 316808;329266 330778;385395 385877;417182 418101;481161 484588;535289 536687;602105 603673;794826 795451;830852 832065;918604 926888;937683 941560;950778 951863;961254 962158;1012157 1014437;1017392 1019229;1022336 1025516;1061310 1061984;1063474 1064826;1092621 1093549;1108796 1111369;1126468 1130228;1139588 1140120;1176356 1177498;1199337 1199817;1230608 1235970;1237955 1241112;1243048 1243258;1247689 1247894;1253901 1254659;1310555 1311891;1312046 1312560;1517423 1519171;1529516 1530315;1537185 1539829;1547591 1548440;1568314 1568497;1574346 1575682;1583784 1584783;1628128 1629826;1640085 1640951;1658508 1659171;1661127 1661375;1675330 1675679;1684247 1685556;1723555 1724563;1729866 1730577;1734053 1734693;1738737 1740157;1767265 1768030;1843140 1846446;1847111 1850828;1854377 1856752;1950583 1951211;2057578 2058695;2152182 2154576;2160466 2161261;2202098 2202501;2205707 2206873];
+% 04: rej=[47 1932;92429 94052;138085 139451;178515 179310;245702 246141;353976 354824;383595 399072;417847 421428;444359 445282;499275 499745;504168 506240;842951 851952;921143 922197;981981 982571;1032793 1038239;1081276 1083155;1128404 1129223;1177580 1178429;1210094 1212195;1253246 1253657;1307699 1308399;1349760 1351596;1373951 1374203;1375344 1375535;1390423 1392259;1450668 1452420;1487021 1490397;1568221 1568585;1602949 1608577;1653882 1654188;1668374 1676215;1761821 1762670;1772068 1773958;1982004 1994658;2123473 2124495;2165596 2167034;2192320 2198961;2220440 2223320;2301828 2316977]
 
-rej=[7584 8036;9325 10429;11718 13988;47064 47517;57176 57582;70883 71873;74322 75049;109479 110120;121109 122483;187708 190138;194510 196530;219179 220769;251059 251159;253431 254335;269266 271437;278781 279514;304584 309597;314866 316808;329266 330778;385395 385877;417182 418101;481161 484588;535289 536687;602105 603673;794826 795451;830852 832065;918604 926888;937683 941560;950778 951863;961254 962158;1012157 1014437;1017392 1019229;1022336 1025516;1061310 1061984;1063474 1064826;1092621 1093549;1108796 1111369;1126468 1130228;1139588 1140120;1176356 1177498;1199337 1199817;1230608 1235970;1237955 1241112;1243048 1243258;1247689 1247894;1253901 1254659;1310555 1311891;1312046 1312560;1517423 1519171;1529516 1530315;1537185 1539829;1547591 1548440;1568314 1568497;1574346 1575682;1583784 1584783;1628128 1629826;1640085 1640951;1658508 1659171;1661127 1661375;1675330 1675679;1684247 1685556;1723555 1724563;1729866 1730577;1734053 1734693;1738737 1740157;1767265 1768030;1843140 1846446;1847111 1850828;1854377 1856752;1950583 1951211;2057578 2058695;2152182 2154576;2160466 2161261;2202098 2202501;2205707 2206873];
-EEG = eeg_eegrej( EEG, rej);
+% EEG = eeg_eegrej( EEG, rej);
 txt = sprintf('Manual Artifact Rejection: %s\n',mat2str(rej));
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
@@ -684,7 +731,7 @@ fprintf('%s',txt)
 EEG=pop_interp(EEG,channels,'spherical');
 
 %reref
-EEG = pop_reref( EEG, []);
+EEG = pop_reref( EEG, [],'exclude',[64 65] );
 
 % save continuous but epoch to see whats left
 Trial = pop_epoch( EEG, {cue1, cue2}, [-.1 2], 'epochinfo', 'yes');
