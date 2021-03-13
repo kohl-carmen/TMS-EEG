@@ -1,8 +1,9 @@
 %% Sanitycheck all behavioural output and print performance
 clear
 
-paritc = 2;
+partic = 2;
 partic_str = sprintf('%02d', partic);
+partic_str='Steph'
 filedir = strcat('C:\Users\ckohl\Desktop\Data\Pilot\Beta',partic_str);
 file=strcat(filedir, '\Beta',partic_str,'_results');
 
@@ -317,7 +318,7 @@ fprintf('\tCondition:\n')
 fprintf('\t\t\tTap\t\t\t\t %i\t\t%i \n',true_pos,false_neg)
 fprintf('\t\t No Tap\t\t\t\t %i\t\t%i \n',false_pos,true_neg)
 fprintf('\nNo Response: %i\n',no_resp)    
-fprintf('Overall Accuracy: %i%%\n',round(mean(Accuracy(CueCond==0))*100))
+fprintf('Overall Accuracy: %i%%\n',round(mean(Accuracy(CueCond==0  & TMSCond==0))*100))
    
 disp('-----------------------------------------')
 disp('Hand Trials - TMS 100ms------------------')
@@ -333,7 +334,7 @@ fprintf('\tCondition:\n')
 fprintf('\t\t\tTap\t\t\t\t %i\t\t%i \n',true_pos,false_neg)
 fprintf('\t\t No Tap\t\t\t\t %i\t\t%i \n',false_pos,true_neg)
 fprintf('\nNo Response: %i\n',no_resp)    
-fprintf('Overall Accuracy: %i%%\n',round(mean(Accuracy(CueCond==0))*100))
+fprintf('Overall Accuracy: %i%%\n',round(mean(Accuracy(CueCond==0  & TMSCond==1))*100))
 
 
 disp('-----------------------------------------')
@@ -350,4 +351,4 @@ fprintf('\tCondition:\n')
 fprintf('\t\t\tTap\t\t\t\t %i\t\t%i \n',true_pos,false_neg)
 fprintf('\t\t No Tap\t\t\t\t %i\t\t%i \n',false_pos,true_neg)
 fprintf('\nNo Response: %i\n',no_resp)    
-fprintf('Overall Accuracy: %i%%\n',round(mean(Accuracy(CueCond==0))*100))
+fprintf('Overall Accuracy: %i%%\n',round(mean(Accuracy(CueCond==0 & TMSCond==2))*100))
