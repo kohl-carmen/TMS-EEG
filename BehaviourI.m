@@ -1,25 +1,32 @@
 %% Sanitycheck all behavioural output and print performance
 clear
 
-partic = 4;
+partic = 22;
+session = 0;
 partic_str = sprintf('%02d', partic);
-filedir = strcat('C:\Users\ckohl\Desktop\Data\Pilot\Beta',partic_str);
-file=strcat(filedir, '\Beta',partic_str,'_results');
+filedir = strcat('C:\Users\ckohl\Desktop\Data\Beta',partic_str,'\Session',num2str(session));
+file=strcat(filedir, '\beta',partic_str,'_results');
+file2=strcat(filedir, '\beta_',partic_str,'_results');
 
 % set up output
 out_dir =  strcat(filedir,'\Preproc\');
+mkdir(out_dir)
 out_txt = fopen(strcat(out_dir,partic_str,'_behaviour'), 'a');
 
 look_for_issues = 0;
 %% load behavioural data
 opts = delimitedTextImportOptions("NumVariables", 11);
-opts.DataLines = [5, Inf];
+opts.DataLines = [6, Inf];
 opts.Delimiter = "\t";
 opts.VariableNames = ["Trial", "CueCond", "TMSCond", "TapCond", "Accuracy", "YesResponse", "NoResponse", "TapTime", "TMSTime", "RT", "Threshold"];
 opts.VariableTypes = ["double", "double", "double", "double", "double", "double", "double", "double", "double", "double", "double"];
 opts.ExtraColumnsRule = "ignore";
 opts.EmptyLineRule = "read";
-tbl = readtable(file, opts);
+try
+    tbl = readtable(file, opts);
+catch
+    tbl = readtable(file2, opts);
+end
 % Convert to output type
 Trial = tbl.Trial;
 CueCond = tbl.CueCond;
@@ -255,7 +262,7 @@ txt =sprintf('Failed to update because floor/ceiling on %i trials',ceilfloor);
 fprintf('%s\n',txt);
 fprintf(out_txt, '%s\n', txt);
 if prob==0
-    txt = sprintf('Threshold Updating fine')
+    txt = sprintf('Threshold Updating fine');
     fprintf('%s\n',txt);
     fprintf(out_txt, '%s\n', txt);
 end
@@ -502,6 +509,25 @@ if look_for_issues > 0
     fprintf(out_txt, '%s', '----------------');
     fprintf(out_txt, '%s', '----------------');
 end
+
+figure
+subplot(1,2,1)
+hold on
+plot(Trial, Threshold,'k')
+title(strcat(partic_str,' - Threshold Updating'))
+ylabel('Threshold')
+xlabel('Trial')
+xlim([0,720])
+subplot(1,2,2)
+hold on
+plot(Trial, Threshold,'k')
+title(strcat(partic_str,' - Threshold Updating'))
+ylabel('Threshold')
+xlabel('Trial')
+xlim([0,720])
+ylim([0 1])
+cd(out_dir)
+print (gcf, '-dbmp', 'thresholdupdating.bmp')
 
 fclose all
 clear
