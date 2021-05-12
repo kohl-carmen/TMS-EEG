@@ -2,7 +2,8 @@
 clear
 close all
 
-partic = 2;
+partic = 10;
+session=1;
 
 % load eeglab
 eeglab_dir='C:\Users\ckohl\Documents\MATLAB\eeglab2020_0';
@@ -11,7 +12,7 @@ eeglab
 
 %load data (cleaned  continuous from Preprocessing.m)
 partic_str = sprintf('%02d', partic);
-filedir = strcat('C:\Users\ckohl\Desktop\Data\Pilot\Beta',partic_str);
+filedir = strcat('C:\Users\ckohl\Desktop\Data\Beta',partic_str,'\Session',num2str(session)');
 cd(filedir)
 filename = strcat(partic_str,'_clean.set');
 [ALLEEG EEG CURRENTSET ALLCOM] = eeglab;
@@ -32,14 +33,38 @@ replace(titleSlide,"Title",strcat('Beta',partic_str,'-  Individual ERPs.m'));
 % get data properties
 dt=EEG.srate/1000;
 electr_oi='C3';
+if session == 0
+    %get TMS electrode
+    elecdir =  strcat(filedir,'\Preproc\');
+    opts = delimitedTextImportOptions("NumVariables", 11);
+    opts.DataLines = [1, Inf];
+    tbl = readtable(strcat(elecdir,partic_str,'_preproc'),opts);
+    for line = 1:height(tbl)
+        try
+            if tbl{line,1}{:}(1:10) == 'Electrode '
+                idx = find(tbl{line,1}{:}==':');
+                electr_oi2 = tbl{line,1}{:}(idx+2:end-1);
+            end
+        catch
+        end
+    end
+end
+    
 channels = EEG.chanlocs;
 EOG = [64,65];
 
 %find electrode oi
 for chan= 1:length(EEG.chanlocs)
-    if length(EEG.chanlocs(chan).labels)==2
+    if length(EEG.chanlocs(chan).labels)==length(electr_oi)
         if EEG.chanlocs(chan).labels==electr_oi
             electr_oi_i=chan;
+        end
+    end
+    if session==0
+        if length(EEG.chanlocs(chan).labels)==length(electr_oi2)
+            if EEG.chanlocs(chan).labels==electr_oi2
+                electr_oi_i2=chan;
+            end
         end
     end
 end
@@ -59,14 +84,6 @@ colours_lbl = {'supra','threshold','tep','tepsupra','tepthresh'};
 yl = [-8 4];
 
 
-
-
-
-
-
-
-
-
 %% - pure SEPs -
 %threshold
 SEP1 = pop_epoch( EEG, {tap{1}}, [-.2 .3], 'epochinfo', 'yes');
@@ -80,23 +97,6 @@ line=[];
 hold on
 title('Pure SEP')
 ylim(yl)
-time = SEP1.times;
-data = SEP1.data(electr_oi_i,:,:);
-line(1)=plot(time, mean(data,3) ,'Color',colours{2},'Linewidth',2);
-%make standard error
-    SE_upper=[];SE_lower=[];
-    for i=1:length(time)
-        se=std(squeeze(data(:,i,:)))./sqrt(length(squeeze(data(:,i,:))));
-        SE_upper(i)=mean(data(:,i,:))+se;
-        SE_lower(i)=mean(data(:,i,:))-se;
-    end
-    tempx=[time,fliplr(time)];
-    tempy=[SE_upper,fliplr(SE_lower)];
-    A=fill(tempx,tempy,'k');
-    A.EdgeColor='none';
-    A.FaceColor=colours{2};
-    A.FaceAlpha=.2;
-
 time = SEP2.times;
 data = SEP2.data(electr_oi_i,:,:);
 line(2)=plot(time, mean(data,3) ,'Color',colours{1},'Linewidth',2);
@@ -114,13 +114,33 @@ line(2)=plot(time, mean(data,3) ,'Color',colours{1},'Linewidth',2);
     A.FaceColor=colours{1};
     A.FaceAlpha=.2;
 y=ylim();
+time = SEP1.times;
+data = SEP1.data(electr_oi_i,:,:);
+line(1)=plot(time, mean(data,3) ,'Color',colours{2},'Linewidth',2);
+%make standard error
+    SE_upper=[];SE_lower=[];
+    for i=1:length(time)
+        se=std(squeeze(data(:,i,:)))./sqrt(length(squeeze(data(:,i,:))));
+        SE_upper(i)=mean(data(:,i,:))+se;
+        SE_lower(i)=mean(data(:,i,:))-se;
+    end
+    tempx=[time,fliplr(time)];
+    tempy=[SE_upper,fliplr(SE_lower)];
+    A=fill(tempx,tempy,'k');
+    A.EdgeColor='none';
+    A.FaceColor=colours{2};
+    A.FaceAlpha=.2;
 line(3)=plot([0,0],[y],'-','Color',[.8 .8 .8]) ;
 legend(line,strcat('threshold (', num2str(size(SEP1.data,3)),')'),...
        strcat('supra (', num2str(size(SEP2.data,3)),')'), 'tap time');
 %ppt
 slide = add(ppt,"Title and Content");replace(slide,"Title",'SEP');
 print(tempfig,"-dpng",'tempfig1');Imageslide = Picture('tempfig1.png');
-replace(slide,"Content",Imageslide);close(tempfig);
+replace(slide,"Content",Imageslide);
+xlim([-10 200])
+slide = add(ppt,"Title and Content");replace(slide,"Title",'SEP');
+print(tempfig,"-dpng",'tempfig2');Imageslide = Picture('tempfig2.png');
+replace(slide,"Content",Imageslide);
      
 %% - pure TEPs -
 %25 and 100 combined
@@ -153,8 +173,8 @@ line(2)=plot([0,0],[y],'--','Color',[.8 .8 .8]) ;
 legend(line, strcat('TEP (', num2str(size(TEP1.data,3)),')'),'tms time');   
 %ppt
 slide = add(ppt,"Title and Content");replace(slide,"Title",'TEP');
-print(tempfig,"-dpng",'tempfig2');Imageslide = Picture('tempfig2.png');
-replace(slide,"Content",Imageslide);close(tempfig);
+print(tempfig,"-dpng",'tempfig3');Imageslide = Picture('tempfig3.png');
+replace(slide,"Content",Imageslide);
 
 
 
@@ -212,8 +232,8 @@ legend(line,strcat('threshold (', num2str(size(SEP1.data,3)),')'),...
        strcat('supra (', num2str(size(SEP2.data,3)),')'),'tap time','tms time');
 %ppt
 slide = add(ppt,"Title and Content");replace(slide,"Title",'TEP-SEP');
-print(tempfig,"-dpng",'tempfig3');Imageslide = Picture('tempfig3.png');
-replace(slide,"Content",Imageslide);close(tempfig);
+print(tempfig,"-dpng",'tempfig4');Imageslide = Picture('tempfig4.png');
+replace(slide,"Content",Imageslide);
 
 
 %% 25ms complex
@@ -271,8 +291,50 @@ legend(line,strcat('threshold (', num2str(size(SEP1.data,3)),')'),...
        strcat('supra (', num2str(size(SEP2.data,3)),')'),'tap time','tms time');
 %ppt
 slide = add(ppt,"Title and Content");replace(slide,"Title",'SEP-TEP');
-print(tempfig,"-dpng",'tempfig4');Imageslide = Picture('tempfig4.png');
-replace(slide,"Content",Imageslide);close(tempfig);
+print(tempfig,"-dpng",'tempfig5');Imageslide = Picture('tempfig5.png');
+replace(slide,"Content",Imageslide);
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if session ==0%, also plot TMS electrode
+
+
+    %% - pure TEPs -
+    %25 and 100 combined
+    TEP1 = pop_epoch( EEG, {tms{1}, tms{4}}, [-.2 .3], 'epochinfo', 'yes');
+    TEP1 = pop_rmbase(TEP1, [-200   -50]);
+
+    tempfig=figure;
+    hold on
+    line=[];
+    ylim(yl)
+    title('Pure TEP')
+    time = TEP1.times;
+    data = TEP1.data(electr_oi_i2,:,:);
+    line(1)=plot(time, mean(data,3) ,'Color',colours{3},'Linewidth',2);
+    %make standard error
+        SE_upper=[];SE_lower=[];
+        for i=1:length(time)
+            se=std(squeeze(data(:,i,:)))./sqrt(length(squeeze(data(:,i,:))));
+            SE_upper(i)=mean(data(:,i,:))+se;
+            SE_lower(i)=mean(data(:,i,:))-se;
+        end
+        tempx=[time,fliplr(time)];
+        tempy=[SE_upper,fliplr(SE_lower)];
+        A=fill(tempx,tempy,'k');
+        A.EdgeColor='none';
+        A.FaceColor=colours{3};
+        A.FaceAlpha=.2;
+    y=ylim();
+    line(2)=plot([0,0],[y],'--','Color',[.8 .8 .8]) ;    
+    legend(line, strcat('TEP (', num2str(size(TEP1.data,3)),')'),'tms time');   
+    %ppt
+    slide = add(ppt,"Title and Content");replace(slide,"Title",'TEP - TMS Electrode');
+    print(tempfig,"-dpng",'tempfig6');Imageslide = Picture('tempfig6.png');
+    replace(slide,"Content",Imageslide);
+end
 
 close(ppt)
-delete tempfig1.png tempfig2.png tempfig3.png tempfig4.png
+delete tempfig1.png tempfig2.png tempfig3.png tempfig4.png tempfig5.png tempfig6.png
