@@ -2,10 +2,11 @@
 % BrainSight spits out a text file - let's see what we can do with it
 clear
 
-partic = 2;
+partic = 10;
+session = 1;
 partic_str = sprintf('%02d', partic);
-filedir = strcat('C:\Users\ckohl\Desktop\Data\Pilot\Beta',partic_str);
-file_name = '\Exported Brainsight Data run3.txt'
+filedir = strcat('C:\Users\ckohl\Desktop\Data\BETA',partic_str,'\Session',num2str(session),'\');
+file_name = strcat('Exported Brainsight Data Session',num2str(session),'.txt');
 
 
 % write_to_file=1;
@@ -96,7 +97,7 @@ for row=1:size(firstcolumn_str,1)
         if firstcolumn_str{row}(1:8)=='# Electr'
             samples_end_row = row-1;
             elecs_start_row =  row+1;
-        elseif ~isempty(elecs_start_row) & firstcolumn_str{row}(1)=='#'
+        elseif ~isempty(elecs_start_row) & firstcolumn_str{row}(1)=='#' & isempty(elecs_end_row)
             elecs_end_row =row-1;
         end
    end
@@ -176,6 +177,36 @@ EMGStruct=struct();
 EMGStruct.Mat = [EMGPeaktopeak1,EMGData1];
 EMGStruct.Meta = [EMGStart(1) EMGEnd(1) EMGRes(1)];
 EMGStruct.Label = {'Peaktopeak','Data'};
+
+%% ------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
+% Get Electrodes
+%% ------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
+Electrode_Layout = struct();
+opts = delimitedTextImportOptions("NumVariables", 37);
+opts.DataLines = [elecs_start_row, elecs_end_row];
+opts.Delimiter = "\t";
+ElectrodeLabels = readmatrix("C:\Users\ckohl\Desktop\Data\BETA10\Session1\Exported Brainsight Data Session1.txt", opts);
+ElectrodeLabs = {};
+for elec = 1:length(ElectrodeLabels)
+    ElectrodeLabs{elec} = ElectrodeLabels{elec,1};
+end
+Electrode_Layout.Labels = ElectrodeLabs;
+opts.VariableNames = ["Var1", "Var2", "Var3", "AssocTarget", "LocX", "LocY", "Var7", "Var8", "Var9", "Var10", "Var11", "Var12", "Var13", "Var14", "Var15", "Var16", "Var17", "Var18", "Var19", "Var20", "Var21", "Var22", "Var23", "Var24", "Var25", "Var26", "Var27", "Var28", "Var29", "Var30", "Var31", "Var32", "Var33", "Var34", "Var35", "Var36", "Var37"];
+opts.SelectedVariableNames = ["AssocTarget", "LocX", "LocY"];
+opts.VariableTypes = ["char", "char", "char", "double", "double", "double", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char", "char"];
+opts = setvaropts(opts, ["Var1", "Var2", "Var3", "Var7", "Var8", "Var9", "Var10", "Var11", "Var12", "Var13", "Var14", "Var15", "Var16", "Var17", "Var18", "Var19", "Var20", "Var21", "Var22", "Var23", "Var24", "Var25", "Var26", "Var27", "Var28", "Var29", "Var30", "Var31", "Var32", "Var33", "Var34", "Var35", "Var36", "Var37"], "WhitespaceRule", "preserve");
+opts = setvaropts(opts, ["Var1", "Var2", "Var3", "Var7", "Var8", "Var9", "Var10", "Var11", "Var12", "Var13", "Var14", "Var15", "Var16", "Var17", "Var18", "Var19", "Var20", "Var21", "Var22", "Var23", "Var24", "Var25", "Var26", "Var27", "Var28", "Var29", "Var30", "Var31", "Var32", "Var33", "Var34", "Var35", "Var36", "Var37"], "EmptyFieldRule", "auto");
+opts = setvaropts(opts, "AssocTarget", "TrimNonNumeric", true);
+opts = setvaropts(opts, "AssocTarget", "ThousandsSeparator", ",");
+ElectrodeLocs = readtable(strcat(filedir,file_name), opts);
+ElectrodeLocs = table2array(ElectrodeLocs);
+clear opts
+Electrode_Layout.Locations = ElectrodeLocs;
+cd(filedir)
+save('Electrode_Layout','Electrode_Layout')
+
     
 %% ------------------------------------------------------------------------
 %% ------------------------------------------------------------------------
