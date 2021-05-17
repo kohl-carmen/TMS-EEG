@@ -10,17 +10,19 @@ function TMSEEG(subj_str,active, subj_intensity)
     training_trials1 = 5;%5
     eeg_rest = 60; %60
     max_pest_trials = 33;%33;
-    training_trials2 =[5,10,20];%[5,10,20];
+    training_trials2 = [5,10,20];%[5,10,20];
     trialmultiplier = 6;%6
     %% TMS EEG Experiment
     % 1) S1 Localization 
     % 2) Training I
-    % 3) Resting EEG
-    % 4) PEST 
-    % 5) Training II
-    % 6) Task
-    % 7) S1 Localization 
-    % 8) Resting EEG
+    % 3) Resting EEG Sound ON
+    % 4) Resting EEG Sound OFF
+    % 5) PEST 
+    % 6) Training II
+    % 7) Task
+    % 8) S1 Localization 
+    % 9) Resting EEG Sound ON
+    % 10) Resting EEG Sound OFF
     
     %% Initializing Psychtoolbox & Serialport
     % we have to redo this once we want to use TMS
@@ -127,9 +129,21 @@ function TMSEEG(subj_str,active, subj_intensity)
     
     
     
-    %% 3) Resting EEG 
-    %instructions=m
-    text = sprintf('Look at the Cross #1 \n\nRelax while looking at the cross on the screen. \nYou don''t need to make any responses. \n\nThis part will take ~1 min.');
+    %% 3) Resting EEG Sound ON
+    %instructions
+    text = sprintf('Resting EEG - Sound ON \n\n Look at the Cross #1 \n\nRelax while looking at the cross on the screen. \nYou don''t need to make any responses. \n\nThis part will take ~1 min.');
+    DrawFormattedText(windowPtr,text,'center','center',white);
+    Screen('Flip',windowPtr);
+    contkeycode(operator_button)=0;
+    while contkeycode(operator_button)==0
+        [s, contkeycode, delta] = KbWait();
+    end
+    Resting(eeg_rest, windowPtr, black,white,red,x_centre,y_centre,SerialPortObj)
+    pause(1)
+    
+    %% 4) Resting EEG Sound OFF
+    %instructions
+    text = sprintf('Resting EEG - Sound OFF \n\n Look at the Cross #1 \n\nRelax while looking at the cross on the screen. \nYou don''t need to make any responses. \n\nThis part will take ~1 min.');
     DrawFormattedText(windowPtr,text,'center','center',white);
     Screen('Flip',windowPtr);
     contkeycode(operator_button)=0;
@@ -140,7 +154,7 @@ function TMSEEG(subj_str,active, subj_intensity)
     pause(1)
         
     
-    %% 4) PEST
+    %% 5) PEST
     %instructions
     text = sprintf('Pre-Task Procedure (PEST) \n\nKeep your eyes on the cross, and while the ARROW is RED \npay attention to the tapping sensation on your hand. \nOnce the cross turns GREEN, report whether you felt a tap or not. \n\nPress ''Y'' with your left index finger for ''Yes'' \nor ''N'' with your left middle finger for ''No''. \n\nYour response will only count when the cross is GREEN. \n\nThis part will take a few mins.');
 
@@ -166,7 +180,7 @@ function TMSEEG(subj_str,active, subj_intensity)
     end
     pause(1)
 
-    %% 5) Training II
+    %% 6) Training II
      % get ready to restart everything:
     fclose(SerialPortObj);
     delete(SerialPortObj);
@@ -242,7 +256,7 @@ function TMSEEG(subj_str,active, subj_intensity)
     pause(1)
     
     
-    %% 6) TMS-EEG Task 
+    %% 7) TMS-EEG Task 
     %instructions
     text = sprintf('Main Task \n\nNow we''re going to begin the full task, as we just practiced. \n\nAs a reminder: \nPay attention to your HEAD when the RED ARROW points UP, \nand then report whether or not you felt a sensation on your HEAD when the cross turns GREEN. \n\nPay attention to your HAND when the RED ARROW points DOWN, \nand then report whether or not you felt a sensation on your HAND once the cross turns GREEN. \n\nReport ''YES'' with your LEFT INDEX finger, and ''NO'' with your LEFT MIDDLE finger. \n\nThis part will take about 1 hour, and there will be several breaks during that time.\n We will stop to check in with you twice - 1/3 and 2/3 of the way through the task,\n and there will also be shorter (30 sec.) breaks in between check-ins. \n\nLet the experimenters know if anything is wrong or if you experience any discomfort.');
     
@@ -257,7 +271,7 @@ function TMSEEG(subj_str,active, subj_intensity)
     pause(1)
     
     
-    %% 7) S1 Localization 2
+    %% 8) S1 Localization 2
     % instructions
     text = sprintf('Finger Taps Only #2 \n \nYou''re almost done! \n\nRest your hand gently on the tap device \nand keep your eyes on the cross.\n You don''t need to make any responses.\n\n This part will take ~5 mins.');
     DrawFormattedText(windowPtr,text,'center','center',white);
@@ -270,9 +284,9 @@ function TMSEEG(subj_str,active, subj_intensity)
     pause(1)
     
     
-    %% 8) Clean EEG 2
+    %% 9) Resting EEG Sound ON
     %instructions
-    text = sprintf('Look at the Cross #2 \n \nThis is the last part!\n\n Just relax and look at the cross.\n You don''t need to make any responses.\n\n This part will take ~1 min.');
+    text = sprintf('Resting EEG - Sound ON \n\n Look at the Cross #2 \n \n Just relax and look at the cross.\n You don''t need to make any responses.\n\n This part will take ~1 min.');
     DrawFormattedText(windowPtr,text,'center','center',white);
     Screen('Flip',windowPtr)
     contkeycode(operator_button)=0;
@@ -280,6 +294,19 @@ function TMSEEG(subj_str,active, subj_intensity)
         [s, contkeycode, delta] = KbWait();
     end
     Resting(eeg_rest, windowPtr, black,white,red,x_centre,y_centre,SerialPortObj)   
+    
+    %% 10) Resting EEG Sound OFF
+    %instructions
+    text = sprintf('Resting EEG - Sound OFF \n\n Look at the Cross #2 \n \nThis is the last part!\n\n Just relax and look at the cross.\n You don''t need to make any responses.\n\n This part will take ~1 min.');
+    DrawFormattedText(windowPtr,text,'center','center',white);
+    Screen('Flip',windowPtr)
+    contkeycode(operator_button)=0;
+    while contkeycode(operator_button)==0
+        [s, contkeycode, delta] = KbWait();
+    end
+    Resting(eeg_rest, windowPtr, black,white,red,x_centre,y_centre,SerialPortObj)  
+    
+    
     %All done
     text = sprintf('You''ve completed today''s session - thank you!!');
     DrawFormattedText(windowPtr,text,'center','center',white);
