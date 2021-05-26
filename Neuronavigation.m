@@ -7,9 +7,9 @@
 %   - saves bad trials (MEP or target)in preproc dir
 
 clear
-
 partic = 10;
 session = 1;
+
 partic_str = sprintf('%02d', partic);
 filedir = strcat('C:\Users\ckohl\Desktop\Data\BETA',partic_str,'\Session',num2str(session),'\');
 file_name = strcat('Exported Brainsight Data Session',num2str(session),'.txt');
