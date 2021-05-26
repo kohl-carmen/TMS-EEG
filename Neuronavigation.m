@@ -2,7 +2,7 @@
 % BrainSight spits out a text file - let's see what we can do with it
 clear
 
-partic = 10;
+partic = 22;
 session = 1;
 partic_str = sprintf('%02d', partic);
 filedir = strcat('C:\Users\ckohl\Desktop\Data\BETA',partic_str,'\Session',num2str(session),'\');
@@ -97,7 +97,8 @@ for row=1:size(firstcolumn_str,1)
         if firstcolumn_str{row}(1:8)=='# Electr'
             samples_end_row = row-1;
             elecs_start_row =  row+1;
-        elseif ~isempty(elecs_start_row) & firstcolumn_str{row}(1)=='#' & isempty(elecs_end_row)
+        end
+        if ~isempty(elecs_start_row) & row>elecs_start_row & firstcolumn_str{row}(1)=='#' & isempty(elecs_end_row)
             elecs_end_row =row-1;
         end
    end
@@ -160,7 +161,7 @@ for columns=1:length(column_headers)
     end      
 end
 
-%% make this data a bit more agrreable
+%% make this data a bit more agreeable
 LocStruct =struct();
 LocStruct.Mat = [LocX,LocY,LocZ,m0n0,m0n1,m0n2,m1n0,m1n1,m1n2,m2n0,m2n1,m2n2];
 LocStruct.Label={'LocX','LocY','LocZ','m0n0','m0n1','m0n2','m1n0','m1n1','m1n2','m2n0','m2n1','m2n2'};
@@ -187,7 +188,7 @@ Electrode_Layout = struct();
 opts = delimitedTextImportOptions("NumVariables", 37);
 opts.DataLines = [elecs_start_row, elecs_end_row];
 opts.Delimiter = "\t";
-ElectrodeLabels = readmatrix("C:\Users\ckohl\Desktop\Data\BETA10\Session1\Exported Brainsight Data Session1.txt", opts);
+ElectrodeLabels = readmatrix(strcat(filedir,file_name), opts);
 ElectrodeLabs = {};
 for elec = 1:length(ElectrodeLabels)
     ElectrodeLabs{elec} = ElectrodeLabels{elec,1};
@@ -204,7 +205,7 @@ ElectrodeLocs = readtable(strcat(filedir,file_name), opts);
 ElectrodeLocs = table2array(ElectrodeLocs);
 clear opts
 Electrode_Layout.Locations = ElectrodeLocs;
-cd(filedir)
+cd(strcat(filedir,'\Preproc\'))
 save('Electrode_Layout','Electrode_Layout')
 
     
