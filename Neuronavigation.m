@@ -264,14 +264,25 @@ else
     end
 end
             
-        
-        
 
-
-
-
-
-
+% now we've matched the number of trials - but don't know what trils they
+% are
+opts = delimitedTextImportOptions("NumVariables", 11);
+opts.DataLines = [6, Inf]; opts.Delimiter = "\t";
+opts.VariableNames = ["Trial", "CueCond", "TMSCond", "Var4", "Var5", "Var6", "Var7", "Var8", "Var9", "Var10", "Var11"];
+opts.SelectedVariableNames = ["Trial", "CueCond", "TMSCond"];
+opts.VariableTypes = ["double", "double", "double", "char", "char", "char", "char", "char", "char", "char", "char"];
+opts.ExtraColumnsRule = "ignore";opts.EmptyLineRule = "read";
+opts = setvaropts(opts, ["Var4", "Var5", "Var6", "Var7", "Var8", "Var9", "Var10", "Var11"], "WhitespaceRule", "preserve");
+opts = setvaropts(opts, ["Var4", "Var5", "Var6", "Var7", "Var8", "Var9", "Var10", "Var11"], "EmptyFieldRule", "auto");
+beh_results = readtable(strcat(filedir,'BETA',partic_str,'_results'), opts);
+beh_results = table2array(beh_results);
+beh_results = beh_results(:,[1,3]);%gives only trial nr and tms cond
+trial_nrs = beh_results(beh_results(:,2)>0); %trial nrs of pulse trial
+if length(trial_nrs) ~= Expected_pulses
+    fprintf('Unexpected Nr of Samples found in Behavioural Output\n')
+    brk
+end
 
 EMGData1=EMGStruct.Mat(:,2);
 EMGPeaktopeak1=EMGStruct.Mat(:,1);
@@ -284,6 +295,7 @@ for trial=1:length(EMGData1)
 end
 EMGData=EMGData';
 cont=input('Press any key to continue');
+
 %% ------------------------------------------------------------------------
 %% ------------------------------------------------------------------------
 % DETECT MEPs
