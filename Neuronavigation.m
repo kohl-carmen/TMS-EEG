@@ -8,9 +8,8 @@ partic_str = sprintf('%02d', partic);
 filedir = strcat('C:\Users\ckohl\Desktop\Data\BETA',partic_str,'\Session',num2str(session),'\');
 file_name = strcat('Exported Brainsight Data Session',num2str(session),'.txt');
 
-
-% write_to_file=1;
-% output_dir=filedir;
+out_dir =  strcat(filedir,'\Preproc\');
+out_txt_overall = fopen(strcat(out_dir,partic_str,'_neuronav_preproc'), 'a');
 
 % 
 % SampleName:         Sample Name
@@ -33,23 +32,6 @@ file_name = strcat('Exported Brainsight Data Session',num2str(session),'.txt');
 % EMGPeaktopeak1:     Peak-to-peak max value?
 % EMGData1:           EMG samples
 
-% t=1;
-%  temp=[Target_m0n0(t),Target_m1n0(t),Target_m2n0(t),Target_LocX(t);...
-%     Target_m0n1(t),Target_m1n1(t),Target_m2n1(t),Target_LocY(t);...
-%     Target_m0n2(t),Target_m1n2(t),Target_m2n2(t),Target_LocZ(t);0 0 0 1]
-% 
-% 
-%  temp=[ m0n0(t), m1n0(t), m2n0(t), LocX(t);...
-%      m0n1(t), m1n1(t), m2n1(t), LocY(t);...
-%      m0n2(t), m1n2(t), m2n2(t), LocZ(t);0 0 0 1]
-% temp*
-
-% 
-% %Output file:
-% if write_to_file
-%     output_file=fopen(strcat(output_dir,'\BETA',num2str(partic),'_BrainSight_output.txt'),'a');
-%     fprintf(output_file, 'BrainSight data processed by ''Import_Brainsight.m''\r\n \r\n%s ', datestr(now));
-% end
 %% ------------------------------------------------------------------------
 %% ------------------------------------------------------------------------
 %% Get Data
@@ -104,9 +86,13 @@ for row=1:size(firstcolumn_str,1)
    end
 end
 fprintf('Sample Detection successful \n')
-fprintf('%i Samples detected \n',samples_end_row-samples_start_row+1)
+txt = sprintf('%i Samples detected \n',samples_end_row-samples_start_row+1);
+fprintf(txt)
+fprintf(out_txt_overall, '%s \n', txt); 
 fprintf('Electrode Detection successful \n')
-fprintf('%i Electrodes detected \n',elecs_end_row-elecs_start_row+1)
+txt = sprintf('%i Electrodes detected \n',elecs_end_row-elecs_start_row+1);
+fprintf(txt)
+fprintf(out_txt_overall, '%s \n', txt); 
 
 % get column headers
 opts = delimitedTextImportOptions("NumVariables", 33);
@@ -181,7 +167,7 @@ EMGStruct.Label = {'Peaktopeak','Data'};
 
 %% ------------------------------------------------------------------------
 %% ------------------------------------------------------------------------
-% Get Electrodes
+%% Get Electrodes
 %% ------------------------------------------------------------------------
 %% ------------------------------------------------------------------------
 Electrode_Layout = struct();
@@ -207,11 +193,11 @@ clear opts
 Electrode_Layout.Locations = ElectrodeLocs;
 cd(strcat(filedir,'\Preproc\'))
 save('Electrode_Layout','Electrode_Layout')
-
+fprintf('\nElectrode Layout saved.\n')
     
 %% ------------------------------------------------------------------------
 %% ------------------------------------------------------------------------
-% Match Trials
+%% Match Trials
 %% ------------------------------------------------------------------------
 %% ------------------------------------------------------------------------
 Trial =[];
@@ -298,9 +284,10 @@ cont=input('Press any key to continue');
 
 %% ------------------------------------------------------------------------
 %% ------------------------------------------------------------------------
-% DETECT MEPs
+%% DETECT MEPs
 %% ------------------------------------------------------------------------
 %% ------------------------------------------------------------------------
+
 MEP_cutoff = 100;
 fprintf('\n-----------------\n')
 fprintf('Detect MEPs')
@@ -405,340 +392,63 @@ while trial<length((EMGData1))
 end
 
 close all
-fprintf('MEP Review done. \n%d MEPs detected.\n',sum(Goodness_MEP==0 ))
-fprintf('Percentage of bad TMS trials: %2.2f%%\n',(1-mean(Goodness_MEP))*100)
+fprintf('MEP Review done. \n')
+txt = sprintf('%d MEPs detected.\n',sum(Goodness_MEP==0 ));
+fprintf(txt)
+fprintf(out_txt_overall, '%s \n', txt); 
+txt = sprintf('Percentage of bad TMS trials (MEP): %2.2f \n',(1-mean(Goodness_MEP))*100);
+fprintf(txt)
+fprintf(out_txt_overall, '%s \n', txt); 
+txt = sprintf('Percentage of bad TMS trials overall (MEP): %2.2f\n',(sum(Goodness_MEP==0 )/720)*100);
+fprintf(txt)
+fprintf(out_txt_overall, '%s \n', txt); 
 
 %save list of trial with MEPs
-bad_trials = trial_nrs(Goodness_MEP==0);
+bad_trials_mep = trial_nrs(Goodness_MEP==0);
 out_dir =  strcat(filedir,'\Preproc\');
 out_txt = fopen(strcat(out_dir,partic_str,'_MEP_trials'), 'a');
-for trial = 1:length(bad_trials)
-    fprintf(out_txt, '%i \n', bad_trials(trial)); 
+fprintf(out_txt_overall, '\nTrials: \n');
+for trial = 1:length(bad_trials_mep)
+    fprintf(out_txt, '%i \n', bad_trials_mep(trial));
+    fprintf(out_txt_overall, '%i \n', bad_trials_mep(trial)); 
 end
-fclose(out_txt)
+fclose(out_txt);
 
 cont=input('Press any key to continue');
 
-%     
-% %% ------------------------------------------------------------------------
-% %% ------------------------------------------------------------------------    
-% %% Define target
-% %% ------------------------------------------------------------------------
-% %% ------------------------------------------------------------------------
-% fprintf('\n-----------------\n')
-% fprintf('Define Targets')
-% fprintf('\n-----------------\n')
-% % % First, check if all triple-pulses had the same target
-% % targets_detected={};
-% % for trial=1:length(AssocTarget)
-% %     if Pulse_ID(trial)>0
-% %         targets_detected{end+1}=AssocTarget{trial};
-% %     end
-% % end
-% % First, check if all -pulses had the same target
-% targets_detected={};
-% for trial=1:length(AssocTarget)
-%     targets_detected{end+1}=AssocTarget{trial};
-% end
-% [targets_detected,temp,target_count]=unique(targets_detected);
-% if length(targets_detected)>1
-%     fprintf('More than one target detected during triple pulses:\n')
-%     for i=1:length(targets_detected)
-%         fprintf('\t(%d) %s (%d) \n',i,targets_detected{i},sum(target_count==i));
-%     end
-%     chosen_target=input('Pick target: ');
-%     target_oi=targets_detected{chosen_target};
-% else
-%     fprintf('Target:\n\t%s\n',targets_detected{1})
-%     target_oi=targets_detected{1};
-% end
-% 
-% for i=1:length(target_names)
-%     if length(target_names{i}(~isspace(target_names{i})))==length(target_oi(~isspace(target_oi)))
-%         if all(target_names{i}(~isspace(target_names{i}))==target_oi(~isspace(target_oi)))
-%             target_i=i;
-%         end
-%     end
-% end
-% T_X=Target_LocX(target_i);
-% T_Y=Target_LocY(target_i);
-% T_Z=Target_LocZ(target_i);
-% 
-% Target_vector=zeros(size(AssocTarget));
-% for trial=1:length(AssocTarget)
-%     if length(AssocTarget{trial})==length(target_oi)
-%         if AssocTarget{trial}== target_oi
-%             Target_vector(trial)=1;
-%         end
-%     end
-% end
-% 
-% cont=input('Press any key to continue');
-% 
-% %% ------------------------------------------------------------------------
-% %% ------------------------------------------------------------------------    
-% %% Target Error
-% %% ------------------------------------------------------------------------
-% %% ------------------------------------------------------------------------
-% fprintf('\n-----------------\n')
-% fprintf('Inspect Coil Location')
-% fprintf('\n-----------------\n')
-% cutoff1=1;%1std away from mean
-% cutoff2=2;
-% %based on target error
-% Goodness_coil=ones(size(TargetError));
-% medgoodness_coil=ones(size(TargetError));
-% medgoodness_coil(abs(TargetError)>abs(mean(TargetError(Target_vector==1 & Pulse_ID>0)))+abs(std(TargetError(Target_vector==1 & Pulse_ID>0)).*cutoff1))=0;
-% Goodness_coil(logical(abs(TargetError)>abs(mean(TargetError(Target_vector==1 & Pulse_ID>0)))+abs(std(TargetError(Target_vector==1 & Pulse_ID>0)).*cutoff2)))=0;
-% 
-% thisX=LocX;
-% thisX(Pulse_ID==0 | Target_vector==0)=nan;
-% thisY=LocY;
-% thisY(Pulse_ID==0 | Target_vector==0)=nan;
-% thisZ=LocZ;
-% thisZ(Pulse_ID==0 | Target_vector==0)=nan;
-% figure
-% clf
-% subplot(3,2,1)
-% t=scatter3(T_X,T_Y,T_Z,'filled');
-% t.MarkerEdgeColor='k';
-% hold on
-% a=scatter3(thisX(medgoodness_coil==1),thisY(medgoodness_coil==1),thisZ(medgoodness_coil==1))  ; 
-% a.MarkerEdgeColor=[.344 .906 .344];
-% a.LineWidth=1;
-% b=scatter3(thisX(medgoodness_coil==0),thisY(medgoodness_coil==0),thisZ(medgoodness_coil==0))  ; 
-% b.MarkerEdgeColor=[1 .625 .25];
-% b.LineWidth=1;
-% c=scatter3(thisX(Goodness_coil==0),thisY(Goodness_coil==0),thisZ(Goodness_coil==0))  ; 
-% c.MarkerEdgeColor=[.75 0 0];
-% c.LineWidth=1;
-% title('Target Error')
-% sum_tarer=sum(Goodness_coil==0);
-% 
-% %based on angular error
-% tmp_Goodness_coil=ones(size(TargetError));
-% tmp_medgoodness_coil=ones(size(TargetError));
-% tmp_medgoodness_coil(abs(AngularError)>abs(mean(AngularError(Target_vector==1 & Pulse_ID>0)))+abs(std(AngularError(Target_vector==1 & Pulse_ID>0)).*cutoff1))=0;
-% tmp_Goodness_coil(logical(abs(AngularError)>abs(mean(AngularError(Target_vector==1 & Pulse_ID>0)))+abs(std(AngularError(Target_vector==1 & Pulse_ID>0)).*cutoff2)))=0;
-% subplot(3,2,2)
-% scatter3(T_X,T_Y,T_Z,'filled')
-% hold on
-% a=scatter3(thisX(tmp_medgoodness_coil==1),thisY(tmp_medgoodness_coil==1),thisZ(tmp_medgoodness_coil==1))  ; 
-% a.MarkerEdgeColor=[.344 .906 .344];
-% a.LineWidth=1;
-% b=scatter3(thisX(tmp_medgoodness_coil==0),thisY(tmp_medgoodness_coil==0),thisZ(tmp_medgoodness_coil==0))  ; 
-% b.MarkerEdgeColor=[1 .625 .25];
-% b.LineWidth=1;
-% c=scatter3(thisX(tmp_Goodness_coil==0),thisY(tmp_Goodness_coil==0),thisZ(tmp_Goodness_coil==0))  ; 
-% c.MarkerEdgeColor=[.75 0 0];
-% c.LineWidth=1;
-% title('Angular Error')
-% sum_anger=sum(tmp_Goodness_coil==0);
-% 
-% %both
-% Goodness_coil(tmp_Goodness_coil==0)=0;
-% medgoodness_coil(tmp_medgoodness_coil==0)=0;
-% subplot(3,2,3:6)
-% scatter3(T_X,T_Y,T_Z,'filled')
-% hold on
-% a=scatter3(thisX(medgoodness_coil==1),thisY(medgoodness_coil==1),thisZ(medgoodness_coil==1))  ; 
-% a.MarkerEdgeColor=[.344 .906 .344];
-% a.LineWidth=1;
-% b=scatter3(thisX(medgoodness_coil==0),thisY(medgoodness_coil==0),thisZ(medgoodness_coil==0))  ; 
-% b.MarkerEdgeColor=[1 .625 .25];
-% b.LineWidth=1;
-% c=scatter3(thisX(Goodness_coil==0),thisY(Goodness_coil==0),thisZ(Goodness_coil==0))  ; 
-% c.MarkerEdgeColor=[.75 0 0];
-% c.LineWidth=1;
-% title('Combined Error')
-% 
-% fprintf('Trials lost due to Coil error: %d \n\t Target Error: %d \n\t Angular Error: %d\n',sum(Goodness_coil==0),sum_tarer, sum_anger)
-% 
-% cont=input('Press any key to continue');
-% close('all')
-% 
-% %% ------------------------------------------------------------------------
-% %% ------------------------------------------------------------------------    
-% %% Pick valid trials
-% %% ------------------------------------------------------------------------
-% %% ------------------------------------------------------------------------
-% % trial valid if: part of triple, all pulses in triple detected and ok,
-% % correct target, no MEP, no Coil error
-% 
-% Trial=nan(size(AssocTarget));
-% good_trial_count=0;
-% triplet_target_count=0;
-% triplet_target_emg_count=0;
-% for trial=1:length(AssocTarget)-2
-%     if Target_vector(trial)==1 & Target_vector(trial+1)==1 & Target_vector(trial+2)==1 & Pulse_ID(trial)==1 & Pulse_ID(trial+1)==2 & Pulse_ID(trial+2)==3
-%         triplet_target_count=triplet_target_count+1;
-%         if Goodness_MEP(trial)==1 & Goodness_MEP(trial+1)==1 & Goodness_MEP(trial+2)==1
-%             triplet_target_emg_count=triplet_target_emg_count+1;
-%             if Goodness_coil(trial)==1 & Goodness_coil(trial+1)==1 &Goodness_coil(trial+2)==1
-%                 good_trial_count=good_trial_count+1;
-%                 Trial(trial:trial+2)=good_trial_count;
-%             end
-%         end
-%     end
-% end
-% 
-% fprintf('\n-----------------\n');
-% fprintf('Original Nr of trials (triple-pulse sets in %s): %d\n',target_oi,triplet_target_count);
-% fprintf('\t Trials Lost due to MEP: %d (%d pulses) \n',triplet_target_count-triplet_target_emg_count, sum(Pulse_ID>0 & Goodness_MEP==0));
-% fprintf('\t Trials Lost due to Coil Location: %d \n',triplet_target_emg_count - good_trial_count);
-% fprintf('\n-----------------\n');
-% fprintf('Remaining Nr of trials (triple-pulse sets): %d',good_trial_count);
-% fprintf('\n-----------------\n');
-% 
-% 
-%  if write_to_file
-%      fprintf(output_file,'\n\n-Summary-\n');
-%      fprintf(output_file,'Session Date: %s\n', Date{1});
-%      fprintf(output_file,'Target: %s\n',target_oi);
-%      fprintf(output_file,'Original Nr of trials (triple-pulse sets in %s): %d\n',target_oi,triplet_target_count);
-%      fprintf(output_file,'Trials Lost due to MEP: %d (%d pulses) \n',triplet_target_count-triplet_target_emg_count, sum(Pulse_ID>0 & Goodness_MEP==0));
-%      fprintf(output_file,'Trials Lost due to Coil Location: %d \n',triplet_target_emg_count - good_trial_count);
-%      fprintf(output_file,'Remaining Nr of trials (triple-pulse sets): %d',good_trial_count);
-%      fprintf(output_file,'\n\n-Samples-\n');
-%      fprintf(output_file, 'Sample\tGood\tTrial\tTriple\tTarget\tEMG\tCoilErr\n');
-%      for s=1:length(SampleName)
-%         fprintf(output_file,'%d\t%d\t%d\t%d\t%d\t%d\t%d\n',s,~isnan(Trial(s)),Trial(s),(Pulse_ID(s)>0),Target_vector(s),Goodness_MEP(s),Goodness_coil(s));
-%      end
-%   end
-% 
-%     
-% 
-%     
-%     
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% % 
-% %     
-% %     
-% % figure
-% % clf
-% % hold on
-% % cut_off1=1;%1std away from mean
-% % cutt_off2=2;
-% % for trial=1:length(AssocTarget)
-% %     err=0;
-% %     if abs(thisX(trial))>abs(mean(thisX))+abs(std(thisX).*cut_off1) | abs(thisY(trial))>abs(mean(thisY))+abs(std(thisY).*cut_off1)  |abs(thisZ(trial))>abs(mean(thisZ))+abs(std(thisZ).*cut_off1) 
-% %         err=1;
-% %         if 
-% %         
-% %         
-% % scatter3(T_X,T_Y,T_Z,'filled')
-% % scatter3(thisX,thisY,thisZ)           
-% %     
-% % fieldtrip_dir='C:\Users\ckohl\Documents\fieldtrip-20190802\fieldtrip-20190802';
-% % cd(fieldtrip_dir)
-% % ft_defaults
-% % % need to unzip this yourself first!
-% % mri=ft_read_mri(strcat(mri_dir,'Beta',num2str(partic),'\MRI\Beta',num2str(partic),'_nifti.nii'))
-% %       
-% %     if length(unique(mri.dim))>1
-% %         cfg=[];
-% %         mri=ft_volumereslice(cfg,mri);
-% %     end
-% % 
-% % 
-% % cfg = [];
-% % cfg.fiducial.nas=[-4.084	-109.471	-11.945]
-% % cfg.fiducial.lpa=[74.090	-17.413	-48.189]
-% % cfg.fiducial.rpa=[-75.596	-12.740	-47.676]
-% % cfg.fiducial.zpoint=[34.242	18.824	64.882];
-% % cfg.method = 'fiducial';
-% % cfg.viewresult ='yes';
-% % [mri] = ft_volumerealign(cfg, mri);
-% % 
-% % 
-% %     tic
-% %     cfg = [];
-% %     cfg.output = {'brain','skull','scalp'};
-% %     segmentedmri = ft_volumesegment(cfg, mri);
-% %     toc
-% % 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% % AssocTarget:        Target active during this sample
-% % CrosshairDriver:    Tool tracked during sample (coil)
-% % LocX/Y/Z:           Coil position at sample
-% % m0n0/1/2:           Orientation (direction cosine)of the x axis of the coil
-% % m1n0/1/2:           Orientation (direction cosine)of the y axis of the coil
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
-% 
+    
+%% ------------------------------------------------------------------------
+%% ------------------------------------------------------------------------    
+%% Find missed pulses
+%% ------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
+fprintf('\n-----------------\n')
+fprintf('Find pulses which did not hit the target')
+fprintf('\n-----------------\n')
+
+Target_cutoff = 3;
+% hist(TargetError)
+bad_trials_target = trial_nrs(TargetError>Target_cutoff);
+txt = sprintf('\n%d trials in which target was missed detected.\n',length(bad_trials_target));
+fprintf(txt)
+fprintf(out_txt_overall, '%s \n', txt); 
+txt = sprintf('Percentage of bad TMS trials (Target): %2.2f\n',(length(bad_trials_target)/Expected_pulses)*100);
+fprintf(txt)
+fprintf(out_txt_overall, '%s \n', txt); 
+txt = sprintf('Percentage of bad TMS trials overall (MEP): %2.2f\n',(length(bad_trials_target)/720)*100);
+fprintf(txt)
+fprintf(out_txt_overall, '%s \n', txt); 
+
+%save list of trial with missed targets
+out_dir =  strcat(filedir,'\Preproc\');
+out_txt = fopen(strcat(out_dir,partic_str,'_missed_target_trials'), 'a');
+fprintf(out_txt_overall, '\nTrials: \n'); 
+for trial = 1:length(bad_trials_target)
+    fprintf(out_txt, '%i \n', bad_trials_target(trial)); 
+    fprintf(out_txt_overall, '%i \n', bad_trials_target(trial)); 
+end
+fclose(out_txt);
+fclose(out_txt_overall);
+
+
+fprintf('\nAll done\n')
