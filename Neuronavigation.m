@@ -1,8 +1,14 @@
-%based on Import_BrainSight.m (alo BrainSight_get_stimlocs.m?)
-% BrainSight spits out a text file - let's see what we can do with it
+%% Neuronavigation
+% Runs through Brainsight output and does the following:
+%    - extracts electrode layout and saves it in preproc dir
+%    - identifies MEPs (for each MEP it detects, it generates a plot for
+%      manual review)
+%   - indentifies trials in which the target was missed (3mm)
+%   - saves bad trials (MEP or target)in preproc dir
+
 clear
 
-partic = 22;
+partic = 10;
 session = 1;
 partic_str = sprintf('%02d', partic);
 filedir = strcat('C:\Users\ckohl\Desktop\Data\BETA',partic_str,'\Session',num2str(session),'\');
@@ -11,7 +17,6 @@ file_name = strcat('Exported Brainsight Data Session',num2str(session),'.txt');
 out_dir =  strcat(filedir,'\Preproc\');
 out_txt_overall = fopen(strcat(out_dir,partic_str,'_neuronav_preproc'), 'a');
 
-% 
 % SampleName:         Sample Name
 % Index:              Index
 % AssocTarget:        Target active during this sample
@@ -238,7 +243,7 @@ else
         fprintf('\n\tEEG: %i\n\tBrainsight: %i\n\tExpected: %i\n',...
                 tms_in_eeg+tms_deleted_in_eeg,...
                 length(Time),Expected_pulses)
-                error out
+                brk
     else
         fprintf('EEG and Brainsight samples matched \n')
         fprintf('Deleted %i Brainsight samples ...\n', tms_deleted_in_eeg)
