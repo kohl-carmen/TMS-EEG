@@ -301,6 +301,7 @@ cont=input('Press any key to continue');
 % DETECT MEPs
 %% ------------------------------------------------------------------------
 %% ------------------------------------------------------------------------
+MEP_cutoff = 100;
 fprintf('\n-----------------\n')
 fprintf('Detect MEPs')
 fprintf('\n-----------------\n')
@@ -350,7 +351,7 @@ while trial<length((EMGData1))
         MEP_time_i=find(round(time)==look_for_MEP(1),1) : find(round(time)==look_for_MEP(2),1);
         [MEP_min MEP_min_i]= min(EMGData(trial, MEP_time_i));
         [MEP_max MEP_max_i]= max(EMGData(trial, MEP_time_i));
-        if MEP_max-MEP_min>100
+        if MEP_max-MEP_min>MEP_cutoff
             col='r';
         else
             col='g';
@@ -363,7 +364,7 @@ while trial<length((EMGData1))
         b=annotation('textbox',dim,'String',p2p_text);
         b.FontSize=14;
         b.BackgroundColor=[1 1 1];
-        if any([MEP_max-MEP_min EMGPeaktopeak1(trial)]>100)
+        if any([MEP_max-MEP_min EMGPeaktopeak1(trial)]>MEP_cutoff)
             MEP_detected=1;
             b.Color='r';
             input_str_temp=' MEP ';
@@ -405,6 +406,16 @@ end
 
 close all
 fprintf('MEP Review done. \n%d MEPs detected.\n',sum(Goodness_MEP==0 ))
+fprintf('Percentage of bad TMS trials: %2.2f%%\n',(1-mean(Goodness_MEP))*100)
+
+%save list of trial with MEPs
+bad_trials = trial_nrs(Goodness_MEP==0);
+out_dir =  strcat(filedir,'\Preproc\');
+out_txt = fopen(strcat(out_dir,partic_str,'_MEP_trials'), 'a');
+for trial = 1:length(bad_trials)
+    fprintf(out_txt, '%i \n', bad_trials(trial)); 
+end
+fclose(out_txt)
 
 cont=input('Press any key to continue');
 
