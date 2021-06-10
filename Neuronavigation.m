@@ -1,3 +1,4 @@
+function [bad_trials_mep, bad_trials_target] = Neuronavigation(partic, session)
 %% Neuronavigation
 % Runs through Brainsight output and does the following:
 %    - extracts electrode layout and saves it in preproc dir
@@ -6,9 +7,6 @@
 %   - indentifies trials in which the target was missed (3mm)
 %   - saves bad trials (MEP or target)in preproc dir
 
-clear
-partic = 10;
-session = 1;
 
 partic_str = sprintf('%02d', partic);
 filedir = strcat('C:\Users\ckohl\Desktop\Data\BETA',partic_str,'\Session',num2str(session),'\');

@@ -1,8 +1,6 @@
+function BehaviourI(partic,session)
 %% Sanitycheck all behavioural output and print performance
-clear
 
-partic = 22;
-session = 0;
 partic_str = sprintf('%02d', partic);
 filedir = strcat('C:\Users\ckohl\Desktop\Data\Beta',partic_str,'\Session',num2str(session));
 file=strcat(filedir, '\beta',partic_str,'_results');

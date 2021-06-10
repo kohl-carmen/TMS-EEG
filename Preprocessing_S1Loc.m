@@ -1,3 +1,4 @@
+function Preprocessing_S1Loc(partic,session)
 %% TMS-EEG Preprocessing - March 2021
 % based on TEP_preproc.m  & TEP_preproc_single.m
 % keeps data continuous
@@ -20,12 +21,6 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% SETUP
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-clear
-close all
-
-%% set per person
-partic = 10;
-session = 1;
 
 % load eeglab
 eeglab_dir='C:\Users\ckohl\Documents\MATLAB\eeglab2020_0';
