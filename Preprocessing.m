@@ -1,4 +1,4 @@
-function Preprocessing(partic, session, bad_trials)
+function [rej, common_trial_counter] = Preprocessing(partic, session, bad_trials)
 %% TMS-EEG Preprocessing - March 2021
 % based on TEP_preproc.m  & TEP_preproc_single.m
 % keeps data continuous
@@ -28,7 +28,7 @@ recharge_zero_time = [-3 3];%artifact itself is short, but a bit variable, so cu
 % load eeglab
 eeglab_dir='C:\Users\ckohl\Documents\MATLAB\eeglab2020_0';
 cd(eeglab_dir)
-eeglab
+[ALLEEG EEG CURRENTSET ALLCOM] = eeglab;
 
 %load data
 partic_str = sprintf('%02d', partic);
@@ -686,25 +686,6 @@ fprintf(out_txt, '%s\n ', txt);
 fprintf('%s',txt)
 EEG = eeg_checkset( EEG );
 
-%% delete bad neuronavigation trials
-rej = [];
-if ~isempty(bad_trials)
-    for bad_trial = bad_trials
-        for event = 1:length(EEG.event) 
-            if length(EEG.event(event).type) == length(strcat('Trial ',num2str(bad_trial)))
-                if EEG.event(event).type == strcat('Trial ',num2str(bad_trial))
-                    rej(end+1,:) = [EEG.event(event).latency, EEG.event(event).latency+2800];
-                end
-            end
-        end
-    end
-end
-EEG = eeg_eegrej( EEG, rej );
-EEG = eeg_checkset( EEG );
-txt = sprintf('Trial Rejection based on Neuronav: %s\n',mat2str(rej));
-fprintf(out_txt, '%s\n ', txt); 
-fprintf('%s',txt)        
-
 %% ICA
 % since we recrod all the time, we definitely get a lot of lbinks which
 % aren't locked to TMS - so hopeffuly this is fine
@@ -773,6 +754,11 @@ EEG=pop_interp(EEG,channels,'spherical');
 %reref
 EEG = pop_reref( EEG, [],'exclude',[64 65] );
 
+%% epoching
+% from now on, we'll reject from epochs, not continuous data - this lead to
+% more data overall, but it allows us to match removed trials across data
+% sets
+EEG = pop_epoch( EEG, {cue1, cue2}, [-.2 2.8], 'epochinfo', 'yes');
 
 %% manual rejecction
 %eeglab redraw
@@ -795,10 +781,39 @@ rej = input('Provide rejection matrix:');
 txt = sprintf('Manual Artifact Rejection: %s\n',mat2str(rej));
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
+
+%% delete bad neuronavigation trials
+neurnav_rej = [];
+common_trial_counter = 0;
+if ~isempty(bad_trials)
+    for bad_trial = bad_trials
+        found = 0;
+        for epoch = 1:length(EEG.epoch)
+            if length(EEG.epoch(epoch).eventtype{2}) == length(strcat('Trial ',num2str(bad_trial)))
+                if EEG.epoch(epoch).eventtype{2} == strcat('Trial ',num2str(bad_trial))
+                    neurnav_rej = [neurnav_rej, epoch];
+                    found = 1;
+                end
+            end
+        end
+        if found ==0 
+            common_trial_counter = common_trial_counter+1;
+        end
+    end
+end
+EEG = pop_rejepoch( EEG, neurnav_rej,0);
+EEG = eeg_checkset( EEG );
+txt = sprintf('%i further trials rejection based on Neuronav: %s\n',length(neurnav_rej));
+fprintf(out_txt, '%s\n ', txt); 
+fprintf('%s',txt)     
+txt = sprintf('%i trials bad in both EEG and Neuronav: %s\n',common_trial_counter);
+fprintf(out_txt, '%s\n ', txt); 
+fprintf('%s',txt) 
+        
     
 % save continuous but epoch to see whats left
-Trial = pop_epoch( EEG, {cue1, cue2}, [-.1 2], 'epochinfo', 'yes');
-txt = sprintf('%i clean whole trials left (-100 2000, cue).\n', size(Trial.data,3));
+
+txt = sprintf('%i clean whole trials left .\n', EEG.trials);
 fprintf(out_txt, '%s\n ', txt); 
 fprintf('%s',txt)
 TEP = pop_epoch( EEG, {tms}, [-.1 .4], 'epochinfo', 'yes');
