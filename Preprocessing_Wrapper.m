@@ -1,8 +1,12 @@
+%% Preprocessing 
+%  - Runs behavioural check and descriptives
+%  - Checks neuronavigation and MEPs
+%  - Preprocesses S1Loc EEG
+%  - Preprocesses Task EEG
 
 
 partic = 22,
 session = 1;
-
 
 
 %% Check Behaviour
@@ -16,7 +20,6 @@ input(' Behaviour check done. Press Enter to continue.');
 close all
 
 %% NeuroNavigation
-cd('C:\Users\ckohl\Desktop\Current\TMS\TMS-EEG-AnalysisCode')
 disp('========================')
 disp ('== NeuroNavigation ==')
 disp('========================')
@@ -25,23 +28,52 @@ disp('========================')
 input(' NeuroNavigation check done. Press Enter to continue.');
 
 %% S1Loc
-cd('C:\Users\ckohl\Desktop\Current\TMS\TMS-EEG-AnalysisCode')
 disp('========================')
 disp ('== S1Loc ==')
 disp('========================')
-Preprocessing_S1Loc(partic,session);
-
+[EEG,out_dir] = Preprocessing_S1Loc_Pre_1(partic,session);
+disp('----------------------')
+disp('----------------------')
+disp('Manual Input Required')
+disp('----------------------')
+disp('----------------------')
+EEG = eeg_checkset( EEG );
+pop_eegplot( EEG, 1, 1, 1);
+input('Press enter when rejection is complete.');
+eegh
+rej = input('Provide rejection matrix:');
+PRE = Preprocessing_S1Loc_Pre_2(partic,session,EEG,rej,out_dir);
+[EEG] = Preprocessing_S1Loc_Post_1(partic,session,out_dir);
+disp('----------------------')
+disp('----------------------')
+disp('Manual Input Required')
+disp('----------------------')
+disp('----------------------')
+EEG = eeg_checkset( EEG );
+pop_eegplot( EEG, 1, 1, 1);
+input('Press enter when rejection is complete.');
+eegh
+rej = input('Provide rejection matrix:');
+Preprocessing_S1Loc_Post_2(partic,session,EEG,rej,out_dir, PRE);
 input(' S1Loc preprocessing done. Press Enter to continue.');
 
 %% Task EEG
-cd('C:\Users\ckohl\Desktop\Current\TMS\TMS-EEG-AnalysisCode')
 disp('========================')
 disp ('== Task EEG ==')
 disp('========================')
-[rej, common_trial_counter] = Preprocessing(partic, session, [bad_trials_mep;bad_trials_target]);
+[EEG,ppt,out_dir] = Preprocessing_1(partic, session)
+pop_eegplot( EEG, 1, 1, 1);
+disp('----------------------')
+disp('----------------------')
+disp('Manual Input Required')
+disp('----------------------')
+disp('----------------------')
+input('Press enter when rejection is complete.');
+eegh
+rej = input('Provide rejection matrix:');
+[common_trial_counter] = Preprocessing_2(partic, session, EEG, out_dir, ppt, rej, [bad_trials_mep;bad_trials_target]);
 
 %% Summary
-cd('C:\Users\ckohl\Desktop\Current\TMS\TMS-EEG-AnalysisCode')
 Trials = 720;
 partic_str = sprintf('%02d', partic);
 filedir = strcat('C:\Users\ckohl\Desktop\Data\BETA',partic_str,'\Session',num2str(session),'\');
@@ -75,7 +107,7 @@ fprintf(out_txt, '%s\n ', txt);
 fprintf('%s',txt)
 
 %delete from behavioural file
-Rejected = [bad_trials_mep,bad_trials_target,rej];
+Rejected = [bad_trials_mep',bad_trials_target',rej];
 Rejected = unique(Rejected);
 
 fid =fopen(strcat(filedir,'BETA',partic_str,'_results'));
@@ -92,11 +124,11 @@ for reject = Rejected
 end
 % print new file
 fid =fopen(strcat(filedir,'BETA',partic_str,'_results_clean'),'w');
-for row=1:numel(C{1,1}) 
+for row=1:numel(TXT{1,1}) 
     if any(row == delete)
         %skip
     else
-        fprintf(fid,'%s\r\n',C{1,1}{row,1}); 
+        fprintf(fid,'%s\r\n',TXT{1,1}{row,1}); 
     end
 end
 fclose(fid);
