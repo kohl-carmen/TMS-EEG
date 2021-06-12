@@ -6,7 +6,7 @@ function [bad_trials_mep, bad_trials_target] = Neuronavigation(partic, session)
 %      manual review)
 %   - indentifies trials in which the target was missed (3mm)
 %   - saves bad trials (MEP or target)in preproc dir
-
+init_dir = cd;
 
 partic_str = sprintf('%02d', partic);
 filedir = strcat('C:\Users\ckohl\Desktop\Data\BETA',partic_str,'\Session',num2str(session),'\');
@@ -453,5 +453,5 @@ end
 fclose(out_txt);
 fclose(out_txt_overall);
 
-
+cd(init_dir)
 fprintf('\nAll done\n')

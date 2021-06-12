@@ -1,6 +1,6 @@
 function BehaviourI(partic,session)
 %% Sanitycheck all behavioural output and print performance
-
+init_dir = cd;
 partic_str = sprintf('%02d', partic);
 filedir = strcat('C:\Users\ckohl\Desktop\Data\Beta',partic_str,'\Session',num2str(session));
 file=strcat(filedir, '\beta',partic_str,'_results');
@@ -526,6 +526,6 @@ xlim([0,720])
 ylim([0 1])
 cd(out_dir)
 print (gcf, '-dbmp', 'thresholdupdating.bmp')
-
+cd(init_dir)
 fclose all
 clear
